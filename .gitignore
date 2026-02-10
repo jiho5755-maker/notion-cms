@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local config
+.claude/
+.mcp.json
+.playwright-mcp/
+
+# screenshots
+*.png
+*.jpeg
+!docs/**/*.jpeg
+!docs/**/*.png
+!public/**/*.png
+!public/**/*.jpeg
