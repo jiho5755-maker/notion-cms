@@ -10,7 +10,7 @@ import { NotionToMarkdown } from "notion-to-md";
 import type {
   PageObjectResponse,
 } from "@notionhq/client/build/src/api-endpoints";
-import type { Tutorial, Combo, Season, Category } from "@/types";
+import type { Tutorial, Combo, Season, Category, Material } from "@/types";
 
 // ------------------------------------------------------------
 // Notion 클라이언트 초기화
@@ -141,7 +141,7 @@ export const getTutorials = unstable_cache(
         database_id: databaseId,
       });
 
-      return response.results
+      const tutorials = response.results
         .filter((page: any): page is PageObjectResponse => "properties" in page)
         .map((page: PageObjectResponse) => ({
           id: page.id,
@@ -154,9 +154,21 @@ export const getTutorials = unstable_cache(
           coverImage: getFiles(page, "coverImage")[0] ?? "",
           excerpt: getProp(page, "excerpt") as string,
           published: getProp(page, "published") as boolean,
-          materials: [], // relation 데이터는 추후 구현
+          materialIds: getProp(page, "materials") as string[],
           createdAt: page.created_time,
         }));
+
+      // materials relation 데이터 조회 및 채우기
+      const tutorialsWithMaterials = await Promise.all(
+        tutorials.map(async (tutorial) => {
+          const materials = await getMaterialsByIds(tutorial.materialIds);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { materialIds, ...rest } = tutorial;
+          return { ...rest, materials };
+        }),
+      );
+
+      return tutorialsWithMaterials;
     } catch (error) {
       console.error("[Notion] 튜토리얼 목록 조회 실패:", error);
       return [];
@@ -191,22 +203,29 @@ export const getTutorialBySlug = unstable_cache(
       const page = response.results[0];
       if (!page || !("properties" in page)) return null;
 
+      // 타입 가드
+      const pageObj = page as PageObjectResponse;
+
       // 페이지 콘텐츠 조회
-      const content = await getPageContent(page.id);
+      const content = await getPageContent(pageObj.id);
+
+      // materials relation 조회
+      const materialIds = getProp(pageObj, "materials") as string[];
+      const materials = await getMaterialsByIds(materialIds);
 
       return {
-        id: page.id,
-        title: getTitle(page),
-        slug: getProp(page, "slug") as string,
-        category: getProp(page, "category") as string,
-        difficulty: (getProp(page, "difficulty") as string || "beginner") as Tutorial["difficulty"],
-        duration: getProp(page, "duration") as string,
-        youtubeUrl: getProp(page, "youtubeUrl") as string,
-        coverImage: getFiles(page, "coverImage")[0] ?? "",
-        excerpt: getProp(page, "excerpt") as string,
-        published: getProp(page, "published") as boolean,
-        materials: [],
-        createdAt: page.created_time,
+        id: pageObj.id,
+        title: getTitle(pageObj),
+        slug: getProp(pageObj, "slug") as string,
+        category: getProp(pageObj, "category") as string,
+        difficulty: (getProp(pageObj, "difficulty") as string || "beginner") as Tutorial["difficulty"],
+        duration: getProp(pageObj, "duration") as string,
+        youtubeUrl: getProp(pageObj, "youtubeUrl") as string,
+        coverImage: getFiles(pageObj, "coverImage")[0] ?? "",
+        excerpt: getProp(pageObj, "excerpt") as string,
+        published: getProp(pageObj, "published") as boolean,
+        materials,
+        createdAt: pageObj.created_time,
         content,
       };
     } catch (error) {
@@ -237,7 +256,7 @@ export const getCombos = unstable_cache(
         database_id: databaseId,
       });
 
-      return response.results
+      const combos = response.results
         .filter((page: any): page is PageObjectResponse => "properties" in page)
         .map((page: PageObjectResponse) => ({
           id: page.id,
@@ -246,10 +265,25 @@ export const getCombos = unstable_cache(
           thumbnails: getFiles(page, "thumbnails"),
           excerpt: getProp(page, "excerpt") as string,
           published: getProp(page, "published") as boolean,
-          materials: [],
-          tutorials: [],
+          materialIds: getProp(page, "materials") as string[],
+          tutorialIds: getProp(page, "tutorials") as string[],
           createdAt: page.created_time,
         }));
+
+      // relation 데이터 조회 및 채우기
+      const combosWithRelations = await Promise.all(
+        combos.map(async (combo) => {
+          const [materials, tutorials] = await Promise.all([
+            getMaterialsByIds(combo.materialIds),
+            getTutorialSummariesByIds(combo.tutorialIds),
+          ]);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { materialIds, tutorialIds, ...rest } = combo;
+          return { ...rest, materials, tutorials };
+        }),
+      );
+
+      return combosWithRelations;
     } catch (error) {
       console.error("[Notion] 재료 조합 목록 조회 실패:", error);
       return [];
@@ -270,18 +304,29 @@ export const getComboById = unstable_cache(
       const page = await client.pages.retrieve({ page_id: id });
       if (!("properties" in page)) return null;
 
-      const content = await getPageContent(page.id);
+      // 타입 가드
+      const pageObj = page as PageObjectResponse;
+
+      const content = await getPageContent(pageObj.id);
+
+      // relation 데이터 조회
+      const materialIds = getProp(pageObj, "materials") as string[];
+      const tutorialIds = getProp(pageObj, "tutorials") as string[];
+      const [materials, tutorials] = await Promise.all([
+        getMaterialsByIds(materialIds),
+        getTutorialSummariesByIds(tutorialIds),
+      ]);
 
       return {
-        id: page.id,
-        title: getTitle(page),
-        difficulty: (getProp(page, "difficulty") as string || "beginner") as Combo["difficulty"],
-        thumbnails: getFiles(page, "thumbnails"),
-        excerpt: getProp(page, "excerpt") as string,
-        published: getProp(page, "published") as boolean,
-        materials: [],
-        tutorials: [],
-        createdAt: page.created_time,
+        id: pageObj.id,
+        title: getTitle(pageObj),
+        difficulty: (getProp(pageObj, "difficulty") as string || "beginner") as Combo["difficulty"],
+        thumbnails: getFiles(pageObj, "thumbnails"),
+        excerpt: getProp(pageObj, "excerpt") as string,
+        published: getProp(pageObj, "published") as boolean,
+        materials,
+        tutorials,
+        createdAt: pageObj.created_time,
         content,
       };
     } catch (error) {
@@ -312,7 +357,7 @@ export const getSeasons = unstable_cache(
         database_id: databaseId,
       });
 
-      return response.results
+      const seasons = response.results
         .filter((page: any): page is PageObjectResponse => "properties" in page)
         .map((page: PageObjectResponse) => ({
           id: page.id,
@@ -322,9 +367,21 @@ export const getSeasons = unstable_cache(
           heroImage: getFiles(page, "heroImage")[0] ?? "",
           excerpt: getProp(page, "excerpt") as string,
           published: getProp(page, "published") as boolean,
-          tutorials: [],
+          tutorialIds: getProp(page, "tutorials") as string[],
           createdAt: page.created_time,
         }));
+
+      // tutorials relation 데이터 조회 및 채우기
+      const seasonsWithTutorials = await Promise.all(
+        seasons.map(async (season) => {
+          const tutorials = await getTutorialsByIds(season.tutorialIds);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { tutorialIds, ...rest } = season;
+          return { ...rest, tutorials };
+        }),
+      );
+
+      return seasonsWithTutorials;
     } catch (error) {
       console.error("[Notion] 시즌 캠페인 목록 조회 실패:", error);
       return [];
@@ -358,18 +415,25 @@ export const getSeasonBySlug = unstable_cache(
       const page = response.results[0];
       if (!page || !("properties" in page)) return null;
 
-      const content = await getPageContent(page.id);
+      // 타입 가드
+      const pageObj = page as PageObjectResponse;
+
+      const content = await getPageContent(pageObj.id);
+
+      // tutorials relation 조회
+      const tutorialIds = getProp(pageObj, "tutorials") as string[];
+      const tutorials = await getTutorialsByIds(tutorialIds);
 
       return {
-        id: page.id,
-        title: getTitle(page),
-        slug: getProp(page, "slug") as string,
-        period: getProp(page, "period") as string,
-        heroImage: getFiles(page, "heroImage")[0] ?? "",
-        excerpt: getProp(page, "excerpt") as string,
-        published: getProp(page, "published") as boolean,
-        tutorials: [],
-        createdAt: page.created_time,
+        id: pageObj.id,
+        title: getTitle(pageObj),
+        slug: getProp(pageObj, "slug") as string,
+        period: getProp(pageObj, "period") as string,
+        heroImage: getFiles(pageObj, "heroImage")[0] ?? "",
+        excerpt: getProp(pageObj, "excerpt") as string,
+        published: getProp(pageObj, "published") as boolean,
+        tutorials,
+        createdAt: pageObj.created_time,
         content,
       };
     } catch (error) {
@@ -423,3 +487,134 @@ export const getCategories = unstable_cache(
   ["categories-list"],
   { revalidate: 3600 },
 );
+
+// ------------------------------------------------------------
+// 재료 (Materials)
+// ------------------------------------------------------------
+
+/**
+ * 재료 목록을 조회한다.
+ * ISR: 1시간(3600초) 캐싱
+ */
+export const getMaterials = unstable_cache(
+  async (): Promise<Material[]> => {
+    const databaseId = process.env.NOTION_DB_MATERIALS;
+    if (!databaseId) return [];
+
+    try {
+      const client = getNotionClient();
+      const response = await client.databases.query({
+        database_id: databaseId,
+      });
+
+      return response.results
+        .filter((page: any): page is PageObjectResponse => "properties" in page)
+        .map((page: PageObjectResponse) => ({
+          id: page.id,
+          title: getTitle(page),
+          category: getProp(page, "category") as string,
+          price: getProp(page, "price") as number,
+          makeshopUrl: getProp(page, "makeshopUrl") as string,
+          thumbnails: getFiles(page, "thumbnails"),
+        }));
+    } catch (error) {
+      console.error("[Notion] 재료 목록 조회 실패:", error);
+      return [];
+    }
+  },
+  ["materials-list"],
+  { revalidate: 3600 },
+);
+
+/**
+ * ID로 재료를 조회한다.
+ */
+async function getMaterialById(id: string): Promise<Material | null> {
+  try {
+    const client = getNotionClient();
+    const page = await client.pages.retrieve({ page_id: id });
+    if (!("properties" in page)) return null;
+
+    return {
+      id: page.id,
+      title: getTitle(page),
+      category: getProp(page, "category") as string,
+      price: getProp(page, "price") as number,
+      makeshopUrl: getProp(page, "makeshopUrl") as string,
+      thumbnails: getFiles(page, "thumbnails"),
+    };
+  } catch (error) {
+    console.error(`[Notion] 재료 조회 실패 (${id}):`, error);
+    return null;
+  }
+}
+
+/**
+ * 여러 재료를 ID 배열로 조회한다. (relation 헬퍼)
+ */
+async function getMaterialsByIds(ids: string[]): Promise<Material[]> {
+  if (ids.length === 0) return [];
+
+  const promises = ids.map((id) => getMaterialById(id));
+  const results = await Promise.all(promises);
+  return results.filter((m): m is Material => m !== null);
+}
+
+// ------------------------------------------------------------
+// Relation 헬퍼: Tutorial 요약 조회
+// ------------------------------------------------------------
+
+/**
+ * 여러 튜토리얼을 ID 배열로 조회한다. (relation 헬퍼)
+ * Season에서 사용할 전체 정보를 반환한다.
+ */
+async function getTutorialsByIds(
+  ids: string[],
+): Promise<Pick<Tutorial, "id" | "title" | "slug" | "coverImage">[]> {
+  if (ids.length === 0) return [];
+
+  try {
+    const client = getNotionClient();
+    const promises = ids.map((id) => client.pages.retrieve({ page_id: id }));
+    const results = await Promise.all(promises);
+
+    return results
+      .filter((page: any): page is PageObjectResponse => "properties" in page)
+      .map((page: PageObjectResponse) => ({
+        id: page.id,
+        title: getTitle(page),
+        slug: getProp(page, "slug") as string,
+        coverImage: getFiles(page, "coverImage")[0] ?? "",
+      }));
+  } catch (error) {
+    console.error("[Notion] 튜토리얼 relation 조회 실패:", error);
+    return [];
+  }
+}
+
+/**
+ * 여러 튜토리얼을 ID 배열로 조회한다. (relation 헬퍼 - 간단 버전)
+ * Combo에서 사용할 최소 정보만 반환한다.
+ */
+async function getTutorialSummariesByIds(
+  ids: string[],
+): Promise<Pick<Tutorial, "id" | "title" | "slug">[]> {
+  if (ids.length === 0) return [];
+
+  try {
+    const client = getNotionClient();
+    const promises = ids.map((id) => client.pages.retrieve({ page_id: id }));
+    const results = await Promise.all(promises);
+
+    return results
+      .filter((page: any): page is PageObjectResponse => "properties" in page)
+      .map((page: PageObjectResponse) => ({
+        id: page.id,
+        title: getTitle(page),
+        slug: getProp(page, "slug") as string,
+      }));
+  } catch (error) {
+    console.error("[Notion] 튜토리얼 요약 조회 실패:", error);
+    return [];
+  }
+}
