@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { formatPrice } from "@/lib/price";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { Material } from "@/types";
@@ -6,11 +7,6 @@ import type { Material } from "@/types";
 interface MaterialSidebarProps {
   materials: Material[];
   className?: string;
-}
-
-/** 가격을 한국어 원화 형식으로 포맷한다 (예: 12,000원) */
-function formatPrice(price: number): string {
-  return `${new Intl.NumberFormat("ko-KR").format(price)}원`;
 }
 
 /** 튜토리얼/조합 상세 페이지 우측에 표시하는 재료 사이드바 */

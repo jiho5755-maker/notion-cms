@@ -141,7 +141,11 @@ coordinator (총괄) — cyan
 4. 시즌 캠페인 (/seasons) — NotCMS 연동
 
 ### Phase 2: 업무 자동화
-5. 셀프 견적서 (/quotation) — 메이크샵 API + PDF
+5. ✅ 셀프 견적서 (/quotation) — 메이크샵 API + PDF 생성 완료
+   - 상품 검색 및 장바구니 추가
+   - React Hook Form + Zod 고객 정보 검증
+   - jsPDF로 PDF 견적서 자동 생성
+   - Fallback: 메이크샵 API 미설정 시 노션 Materials 사용
 6. 고객 매출 관리 — 얼마에요 대체
 7. FAQ + 고객 문의 자동화
 
