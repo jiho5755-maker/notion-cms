@@ -111,17 +111,20 @@ export function QuotationCart({
       {/* 합계 */}
       <div className="space-y-2 border rounded-lg p-4 bg-muted/50">
         <div className="flex justify-between text-sm">
-          <span>총액</span>
+          <span className="text-muted-foreground">공급가액</span>
           <span>{formatPrice(totalAmount)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span>VAT (10%)</span>
+          <span className="text-muted-foreground">부가세 (10%)</span>
           <span>{formatPrice(vatAmount)}</span>
         </div>
         <div className="flex justify-between text-lg font-bold pt-2 border-t">
           <span>최종 합계</span>
-          <span>{formatPrice(grandTotal)}</span>
+          <span className="text-primary">{formatPrice(grandTotal)}</span>
         </div>
+        <p className="text-xs text-muted-foreground pt-1">
+          * 공급가액은 부가세를 제외한 금액입니다.
+        </p>
       </div>
     </div>
   );

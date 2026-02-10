@@ -7,8 +7,10 @@ import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductSearch } from "./product-search";
 import { ProductList } from "./product-list";
+import { ManualProductForm } from "./manual-product-form";
 import { QuotationCart } from "./quotation-cart";
 import { CustomerForm, customerSchema } from "./customer-form";
 import { calculateSubtotal } from "@/lib/price";
@@ -36,7 +38,7 @@ export function QuotationClient() {
     },
   });
 
-  // 상품 추가 핸들러
+  // 상품 추가 핸들러 (검색 상품용)
   const handleAddItem = (product: MakeshopProduct) => {
     const existingItem = items.find((item) => item.id === product.productId);
 
@@ -67,6 +69,11 @@ export function QuotationClient() {
       setItems((prev) => [...prev, newItem]);
       toast.success("상품이 추가되었습니다.");
     }
+  };
+
+  // 수동 입력 상품 추가 핸들러
+  const handleAddManualItem = (item: QuotationItem) => {
+    setItems((prev) => [...prev, item]);
   };
 
   // 수량 변경 핸들러
@@ -148,24 +155,37 @@ export function QuotationClient() {
         </Alert>
       )}
 
-      {/* 상품 검색 섹션 */}
+      {/* 상품 선택 섹션 */}
       <section className="space-y-4">
-        <h2 className="text-xl font-semibold">상품 검색</h2>
-        <ProductSearch
-          onSearchResult={(products, source) => {
-            setSearchResults(products);
-            setDataSource(source);
-          }}
-          onSearchStart={() => setIsSearching(true)}
-          onSearchEnd={() => setIsSearching(false)}
-        />
-        {searchResults.length > 0 || isSearching ? (
-          <ProductList
-            products={searchResults}
-            onAddItem={handleAddItem}
-            isLoading={isSearching}
-          />
-        ) : null}
+        <h2 className="text-xl font-semibold">상품 선택</h2>
+        <Tabs defaultValue="search" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="search">상품 검색</TabsTrigger>
+            <TabsTrigger value="manual">직접 입력</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="search" className="space-y-4">
+            <ProductSearch
+              onSearchResult={(products, source) => {
+                setSearchResults(products);
+                setDataSource(source);
+              }}
+              onSearchStart={() => setIsSearching(true)}
+              onSearchEnd={() => setIsSearching(false)}
+            />
+            {searchResults.length > 0 || isSearching ? (
+              <ProductList
+                products={searchResults}
+                onAddItem={handleAddItem}
+                isLoading={isSearching}
+              />
+            ) : null}
+          </TabsContent>
+
+          <TabsContent value="manual">
+            <ManualProductForm onAddItem={handleAddManualItem} />
+          </TabsContent>
+        </Tabs>
       </section>
 
       <Separator />
