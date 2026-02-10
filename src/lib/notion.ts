@@ -1,41 +1,122 @@
 // ============================================================
-// PRESSCO 21 — NotCMS 데이터 페칭 함수
-// 노션 CMS에서 콘텐츠를 조회하는 서버 사이드 유틸리티.
+// PRESSCO 21 — Notion Official SDK 데이터 페칭 함수
+// Notion Official API로 콘텐츠를 조회하는 서버 사이드 유틸리티.
 // ISR 캐싱은 unstable_cache를 통해 적용한다.
 // ============================================================
 
 import { unstable_cache } from "next/cache";
-import { getNotCmsClient } from "@/notcms/schema";
+import { Client } from "@notionhq/client";
+import { NotionToMarkdown } from "notion-to-md";
+import type {
+  PageObjectResponse,
+} from "@notionhq/client/build/src/api-endpoints";
 import type { Tutorial, Combo, Season, Category } from "@/types";
 
 // ------------------------------------------------------------
-// 내부 헬퍼: NotCMS 응답을 안전하게 언래핑
+// Notion 클라이언트 초기화
+// ------------------------------------------------------------
+
+function getNotionClient(): Client {
+  if (!process.env.NOTION_TOKEN) {
+    throw new Error("[Notion] NOTION_TOKEN 환경 변수가 설정되지 않았습니다.");
+  }
+
+  return new Client({ auth: process.env.NOTION_TOKEN });
+}
+
+function getN2M(): NotionToMarkdown {
+  const client = getNotionClient();
+  return new NotionToMarkdown({ notionClient: client });
+}
+
+// ------------------------------------------------------------
+// 내부 헬퍼: Notion 속성 추출
 // ------------------------------------------------------------
 
 /**
- * NotCMS의 [data, error, response] 튜플에서 데이터를 추출한다.
- * 에러 발생 시 빈 배열 또는 null을 반환하여 페이지 렌더링을 중단하지 않는다.
+ * Notion 페이지 속성에서 타입별로 값을 안전하게 추출한다.
  */
-function unwrapList<T>(
-  result: readonly [T[] | undefined, Error | null, Response | undefined],
-): T[] {
-  const [data, error] = result;
-  if (error) {
-    console.error("[NotCMS] 목록 조회 실패:", error.message);
-    return [];
+function getProp(
+  page: PageObjectResponse,
+  key: string,
+): string | number | boolean | string[] {
+  const prop = page.properties[key];
+  if (!prop) return "";
+
+  switch (prop.type) {
+    case "title":
+      return prop.title[0]?.plain_text ?? "";
+    case "rich_text":
+      return prop.rich_text[0]?.plain_text ?? "";
+    case "select":
+      return prop.select?.name ?? "";
+    case "multi_select":
+      return prop.multi_select.map((s) => s.name);
+    case "number":
+      return prop.number ?? 0;
+    case "checkbox":
+      return prop.checkbox;
+    case "url":
+      return prop.url ?? "";
+    case "email":
+      return prop.email ?? "";
+    case "phone_number":
+      return prop.phone_number ?? "";
+    case "date":
+      return prop.date?.start ?? "";
+    case "files":
+      if (prop.files.length === 0) return "";
+      const file = prop.files[0];
+      if (file.type === "external") return file.external.url;
+      if (file.type === "file") return file.file.url;
+      return "";
+    case "relation":
+      return prop.relation.map((r) => r.id);
+    default:
+      return "";
   }
-  return data ?? [];
 }
 
-function unwrapPage<T>(
-  result: readonly [T | undefined, Error | null, Response | undefined],
-): T | null {
-  const [data, error] = result;
-  if (error) {
-    console.error("[NotCMS] 상세 조회 실패:", error.message);
-    return null;
+/**
+ * Notion 페이지의 title 속성을 찾아서 반환한다.
+ */
+function getTitle(page: PageObjectResponse): string {
+  const titleProp = Object.values(page.properties).find(
+    (prop) => prop.type === "title",
+  );
+  if (!titleProp || titleProp.type !== "title") return "";
+  return titleProp.title[0]?.plain_text ?? "";
+}
+
+/**
+ * Notion 페이지의 files 속성에서 모든 파일 URL을 추출한다.
+ */
+function getFiles(page: PageObjectResponse, key: string): string[] {
+  const prop = page.properties[key];
+  if (!prop || prop.type !== "files") return [];
+
+  return prop.files.map((file) => {
+    if (file.type === "external") return file.external.url;
+    if (file.type === "file") return file.file.url;
+    return "";
+  });
+}
+
+/**
+ * Notion 페이지의 블록을 마크다운으로 변환한다.
+ */
+async function getPageContent(pageId: string): Promise<string> {
+  const n2mClient = getN2M();
+  if (!n2mClient) return "";
+
+  try {
+    const mdBlocks = await n2mClient.pageToMarkdown(pageId);
+    const mdString = n2mClient.toMarkdownString(mdBlocks);
+    return mdString.parent ?? "";
+  } catch (error) {
+    console.error(`[Notion] 페이지 콘텐츠 조회 실패 (${pageId}):`, error);
+    return "";
   }
-  return data ?? null;
 }
 
 // ------------------------------------------------------------
@@ -48,29 +129,38 @@ function unwrapPage<T>(
  */
 export const getTutorials = unstable_cache(
   async (): Promise<Tutorial[]> => {
-    const nc = getNotCmsClient();
-    if (!nc) return [];
+    const databaseId = process.env.NOTION_DB_TUTORIALS;
+    if (!databaseId) {
+      console.warn("[Notion] NOTION_DB_TUTORIALS 환경 변수가 없습니다.");
+      return [];
+    }
 
-    const result = await nc.query.tutorials.list();
-    const pages = unwrapList(result);
+    try {
+      const client = getNotionClient();
+      const response = await client.databases.query({
+        database_id: databaseId,
+      });
 
-    // published가 true인 항목만 필터링
-    return pages
-      .filter((page) => page.properties.published === true)
-      .map((page) => ({
-        id: page.id,
-        title: page.title ?? page.properties.title ?? "",
-        slug: page.properties.slug ?? "",
-        category: page.properties.category ?? "",
-        difficulty: (page.properties.difficulty ?? "beginner") as Tutorial["difficulty"],
-        duration: page.properties.duration ?? "",
-        youtubeUrl: page.properties.youtubeUrl ?? "",
-        coverImage: page.properties.coverImage?.[0] ?? "",
-        excerpt: page.properties.excerpt ?? "",
-        published: page.properties.published ?? false,
-        materials: [], // relation 데이터는 별도 조회 필요
-        createdAt: "",
-      }));
+      return response.results
+        .filter((page: any): page is PageObjectResponse => "properties" in page)
+        .map((page: PageObjectResponse) => ({
+          id: page.id,
+          title: getTitle(page),
+          slug: getProp(page, "slug") as string,
+          category: getProp(page, "category") as string,
+          difficulty: (getProp(page, "difficulty") as string || "beginner") as Tutorial["difficulty"],
+          duration: getProp(page, "duration") as string,
+          youtubeUrl: getProp(page, "youtubeUrl") as string,
+          coverImage: getFiles(page, "coverImage")[0] ?? "",
+          excerpt: getProp(page, "excerpt") as string,
+          published: getProp(page, "published") as boolean,
+          materials: [], // relation 데이터는 추후 구현
+          createdAt: page.created_time,
+        }));
+    } catch (error) {
+      console.error("[Notion] 튜토리얼 목록 조회 실패:", error);
+      return [];
+    }
   },
   ["tutorials-list"],
   { revalidate: 3600 },
@@ -78,44 +168,51 @@ export const getTutorials = unstable_cache(
 
 /**
  * 슬러그로 튜토리얼 상세를 조회한다.
- * 목록에서 슬러그로 ID를 찾은 뒤 개별 페이지를 가져온다.
  * ISR: 10분(600초) 캐싱
  */
 export const getTutorialBySlug = unstable_cache(
   async (slug: string): Promise<(Tutorial & { content: string }) | null> => {
-    const nc = getNotCmsClient();
-    if (!nc) return null;
+    const databaseId = process.env.NOTION_DB_TUTORIALS;
+    if (!databaseId) return null;
 
-    // 먼저 목록에서 슬러그에 해당하는 페이지 ID를 찾는다
-    const listResult = await nc.query.tutorials.list();
-    const pages = unwrapList(listResult);
+    try {
+      const client = getNotionClient();
+      // 슬러그로 필터링
+      const response = await client.databases.query({
+        database_id: databaseId,
+        filter: {
+          property: "slug",
+          rich_text: {
+            equals: slug,
+          },
+        },
+      });
 
-    const target = pages.find((page) => page.properties.slug === slug);
-    if (!target) {
-      console.warn(`[NotCMS] 튜토리얼을 찾을 수 없음: slug=${slug}`);
+      const page = response.results[0];
+      if (!page || !("properties" in page)) return null;
+
+      // 페이지 콘텐츠 조회
+      const content = await getPageContent(page.id);
+
+      return {
+        id: page.id,
+        title: getTitle(page),
+        slug: getProp(page, "slug") as string,
+        category: getProp(page, "category") as string,
+        difficulty: (getProp(page, "difficulty") as string || "beginner") as Tutorial["difficulty"],
+        duration: getProp(page, "duration") as string,
+        youtubeUrl: getProp(page, "youtubeUrl") as string,
+        coverImage: getFiles(page, "coverImage")[0] ?? "",
+        excerpt: getProp(page, "excerpt") as string,
+        published: getProp(page, "published") as boolean,
+        materials: [],
+        createdAt: page.created_time,
+        content,
+      };
+    } catch (error) {
+      console.error(`[Notion] 튜토리얼 상세 조회 실패 (${slug}):`, error);
       return null;
     }
-
-    // 개별 페이지 조회 (content 포함)
-    const pageResult = await nc.query.tutorials.get(target.id);
-    const page = unwrapPage(pageResult);
-    if (!page) return null;
-
-    return {
-      id: page.id,
-      title: page.title ?? page.properties.title ?? "",
-      slug: page.properties.slug ?? "",
-      category: page.properties.category ?? "",
-      difficulty: (page.properties.difficulty ?? "beginner") as Tutorial["difficulty"],
-      duration: page.properties.duration ?? "",
-      youtubeUrl: page.properties.youtubeUrl ?? "",
-      coverImage: page.properties.coverImage?.[0] ?? "",
-      excerpt: page.properties.excerpt ?? "",
-      published: page.properties.published ?? false,
-      materials: [],
-      createdAt: "",
-      content: page.content ?? "",
-    };
   },
   ["tutorial-detail"],
   { revalidate: 600 },
@@ -131,25 +228,32 @@ export const getTutorialBySlug = unstable_cache(
  */
 export const getCombos = unstable_cache(
   async (): Promise<Combo[]> => {
-    const nc = getNotCmsClient();
-    if (!nc) return [];
+    const databaseId = process.env.NOTION_DB_COMBOS;
+    if (!databaseId) return [];
 
-    const result = await nc.query.combos.list();
-    const pages = unwrapList(result);
+    try {
+      const client = getNotionClient();
+      const response = await client.databases.query({
+        database_id: databaseId,
+      });
 
-    return pages
-      .filter((page) => page.properties.published === true)
-      .map((page) => ({
-        id: page.id,
-        title: page.title ?? page.properties.title ?? "",
-        difficulty: (page.properties.difficulty ?? "beginner") as Combo["difficulty"],
-        thumbnails: page.properties.thumbnails ?? [],
-        excerpt: page.properties.excerpt ?? "",
-        published: page.properties.published ?? false,
-        materials: [],
-        tutorials: [],
-        createdAt: "",
-      }));
+      return response.results
+        .filter((page: any): page is PageObjectResponse => "properties" in page)
+        .map((page: PageObjectResponse) => ({
+          id: page.id,
+          title: getTitle(page),
+          difficulty: (getProp(page, "difficulty") as string || "beginner") as Combo["difficulty"],
+          thumbnails: getFiles(page, "thumbnails"),
+          excerpt: getProp(page, "excerpt") as string,
+          published: getProp(page, "published") as boolean,
+          materials: [],
+          tutorials: [],
+          createdAt: page.created_time,
+        }));
+    } catch (error) {
+      console.error("[Notion] 재료 조합 목록 조회 실패:", error);
+      return [];
+    }
   },
   ["combos-list"],
   { revalidate: 3600 },
@@ -161,25 +265,29 @@ export const getCombos = unstable_cache(
  */
 export const getComboById = unstable_cache(
   async (id: string): Promise<(Combo & { content: string }) | null> => {
-    const nc = getNotCmsClient();
-    if (!nc) return null;
+    try {
+      const client = getNotionClient();
+      const page = await client.pages.retrieve({ page_id: id });
+      if (!("properties" in page)) return null;
 
-    const result = await nc.query.combos.get(id);
-    const page = unwrapPage(result);
-    if (!page) return null;
+      const content = await getPageContent(page.id);
 
-    return {
-      id: page.id,
-      title: page.title ?? page.properties.title ?? "",
-      difficulty: (page.properties.difficulty ?? "beginner") as Combo["difficulty"],
-      thumbnails: page.properties.thumbnails ?? [],
-      excerpt: page.properties.excerpt ?? "",
-      published: page.properties.published ?? false,
-      materials: [],
-      tutorials: [],
-      createdAt: "",
-      content: page.content ?? "",
-    };
+      return {
+        id: page.id,
+        title: getTitle(page),
+        difficulty: (getProp(page, "difficulty") as string || "beginner") as Combo["difficulty"],
+        thumbnails: getFiles(page, "thumbnails"),
+        excerpt: getProp(page, "excerpt") as string,
+        published: getProp(page, "published") as boolean,
+        materials: [],
+        tutorials: [],
+        createdAt: page.created_time,
+        content,
+      };
+    } catch (error) {
+      console.error(`[Notion] 재료 조합 상세 조회 실패 (${id}):`, error);
+      return null;
+    }
   },
   ["combo-detail"],
   { revalidate: 600 },
@@ -195,25 +303,32 @@ export const getComboById = unstable_cache(
  */
 export const getSeasons = unstable_cache(
   async (): Promise<Season[]> => {
-    const nc = getNotCmsClient();
-    if (!nc) return [];
+    const databaseId = process.env.NOTION_DB_SEASONS;
+    if (!databaseId) return [];
 
-    const result = await nc.query.seasons.list();
-    const pages = unwrapList(result);
+    try {
+      const client = getNotionClient();
+      const response = await client.databases.query({
+        database_id: databaseId,
+      });
 
-    return pages
-      .filter((page) => page.properties.published === true)
-      .map((page) => ({
-        id: page.id,
-        title: page.title ?? page.properties.title ?? "",
-        slug: page.properties.slug ?? "",
-        period: page.properties.period ?? "",
-        heroImage: page.properties.heroImage?.[0] ?? "",
-        excerpt: page.properties.excerpt ?? "",
-        published: page.properties.published ?? false,
-        tutorials: [],
-        createdAt: "",
-      }));
+      return response.results
+        .filter((page: any): page is PageObjectResponse => "properties" in page)
+        .map((page: PageObjectResponse) => ({
+          id: page.id,
+          title: getTitle(page),
+          slug: getProp(page, "slug") as string,
+          period: getProp(page, "period") as string,
+          heroImage: getFiles(page, "heroImage")[0] ?? "",
+          excerpt: getProp(page, "excerpt") as string,
+          published: getProp(page, "published") as boolean,
+          tutorials: [],
+          createdAt: page.created_time,
+        }));
+    } catch (error) {
+      console.error("[Notion] 시즌 캠페인 목록 조회 실패:", error);
+      return [];
+    }
   },
   ["seasons-list"],
   { revalidate: 3600 },
@@ -225,34 +340,42 @@ export const getSeasons = unstable_cache(
  */
 export const getSeasonBySlug = unstable_cache(
   async (slug: string): Promise<(Season & { content: string }) | null> => {
-    const nc = getNotCmsClient();
-    if (!nc) return null;
+    const databaseId = process.env.NOTION_DB_SEASONS;
+    if (!databaseId) return null;
 
-    const listResult = await nc.query.seasons.list();
-    const pages = unwrapList(listResult);
+    try {
+      const client = getNotionClient();
+      const response = await client.databases.query({
+        database_id: databaseId,
+        filter: {
+          property: "slug",
+          rich_text: {
+            equals: slug,
+          },
+        },
+      });
 
-    const target = pages.find((page) => page.properties.slug === slug);
-    if (!target) {
-      console.warn(`[NotCMS] 시즌 캠페인을 찾을 수 없음: slug=${slug}`);
+      const page = response.results[0];
+      if (!page || !("properties" in page)) return null;
+
+      const content = await getPageContent(page.id);
+
+      return {
+        id: page.id,
+        title: getTitle(page),
+        slug: getProp(page, "slug") as string,
+        period: getProp(page, "period") as string,
+        heroImage: getFiles(page, "heroImage")[0] ?? "",
+        excerpt: getProp(page, "excerpt") as string,
+        published: getProp(page, "published") as boolean,
+        tutorials: [],
+        createdAt: page.created_time,
+        content,
+      };
+    } catch (error) {
+      console.error(`[Notion] 시즌 캠페인 상세 조회 실패 (${slug}):`, error);
       return null;
     }
-
-    const pageResult = await nc.query.seasons.get(target.id);
-    const page = unwrapPage(pageResult);
-    if (!page) return null;
-
-    return {
-      id: page.id,
-      title: page.title ?? page.properties.title ?? "",
-      slug: page.properties.slug ?? "",
-      period: page.properties.period ?? "",
-      heroImage: page.properties.heroImage?.[0] ?? "",
-      excerpt: page.properties.excerpt ?? "",
-      published: page.properties.published ?? false,
-      tutorials: [],
-      createdAt: "",
-      content: page.content ?? "",
-    };
   },
   ["season-detail"],
   { revalidate: 600 },
@@ -268,21 +391,34 @@ export const getSeasonBySlug = unstable_cache(
  */
 export const getCategories = unstable_cache(
   async (): Promise<Category[]> => {
-    const nc = getNotCmsClient();
-    if (!nc) return [];
+    const databaseId = process.env.NOTION_DB_CATEGORIES;
+    if (!databaseId) return [];
 
-    const result = await nc.query.categories.list();
-    const pages = unwrapList(result);
+    try {
+      const client = getNotionClient();
+      const response = await client.databases.query({
+        database_id: databaseId,
+        sorts: [
+          {
+            property: "order",
+            direction: "ascending",
+          },
+        ],
+      });
 
-    return pages
-      .map((page) => ({
-        id: page.id,
-        title: page.title ?? page.properties.title ?? "",
-        slug: page.properties.slug ?? "",
-        icon: page.properties.icon ?? "",
-        order: page.properties.order ?? 0,
-      }))
-      .sort((a, b) => a.order - b.order);
+      return response.results
+        .filter((page: any): page is PageObjectResponse => "properties" in page)
+        .map((page: PageObjectResponse) => ({
+          id: page.id,
+          title: getTitle(page),
+          slug: getProp(page, "slug") as string,
+          icon: getProp(page, "icon") as string,
+          order: getProp(page, "order") as number,
+        }));
+    } catch (error) {
+      console.error("[Notion] 카테고리 목록 조회 실패:", error);
+      return [];
+    }
   },
   ["categories-list"],
   { revalidate: 3600 },
