@@ -1,3 +1,4 @@
+import DOMPurify from "isomorphic-dompurify";
 import { cn } from "@/lib/utils";
 
 interface ContentRendererProps {
@@ -5,16 +6,42 @@ interface ContentRendererProps {
   className?: string;
 }
 
+/** DOMPurify에서 허용할 HTML 태그 목록 */
+const ALLOWED_TAGS = [
+  "h1", "h2", "h3", "h4", "h5", "h6",
+  "p", "br", "hr",
+  "ul", "ol", "li",
+  "a", "strong", "em", "s", "u", "code", "pre", "span",
+  "blockquote",
+  "table", "thead", "tbody", "tr", "th", "td",
+  "img", "figure", "figcaption",
+  "div",
+];
+
+/** DOMPurify에서 허용할 HTML 속성 목록 */
+const ALLOWED_ATTR = [
+  "href", "target", "rel",
+  "src", "alt", "width", "height", "loading",
+  "class", "id",
+  "colspan", "rowspan",
+];
+
 /**
  * NotCMS 콘텐츠를 렌더링하는 컴포넌트.
  * NotCMS는 HTML 문자열을 반환하므로 dangerouslySetInnerHTML로 렌더링한다.
- * @tailwindcss/typography 없이 자식 선택자로 기본 타이포그래피를 적용한다.
+ * DOMPurify로 새니타이제이션하여 XSS를 방지한다.
  */
 export function ContentRenderer({ content, className }: ContentRendererProps) {
   // 빈 콘텐츠인 경우 렌더링하지 않음
   if (!content || content.trim().length === 0) {
     return null;
   }
+
+  const sanitized = DOMPurify.sanitize(content, {
+    ALLOWED_TAGS,
+    ALLOWED_ATTR,
+    ALLOW_DATA_ATTR: false,
+  });
 
   return (
     <div
@@ -61,7 +88,7 @@ export function ContentRenderer({ content, className }: ContentRendererProps) {
 
         className
       )}
-      dangerouslySetInnerHTML={{ __html: content }}
+      dangerouslySetInnerHTML={{ __html: sanitized }}
     />
   );
 }

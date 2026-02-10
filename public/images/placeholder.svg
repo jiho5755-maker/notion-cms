@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" fill="none">
+  <rect width="800" height="450" fill="#FFF1F2"/>
+  <g transform="translate(355, 170)">
+    <!-- 꽃 아이콘 (브랜드 컬러 rose-300) -->
+    <path d="M45 15C45 15 52 5 45 0C38 5 45 15 45 15Z" fill="#FDA4AF"/>
+    <path d="M45 15C45 15 55 22 60 15C55 8 45 15 45 15Z" fill="#FDA4AF"/>
+    <path d="M45 15C45 15 52 25 60 25C55 18 45 15 45 15Z" fill="#FDA4AF"/>
+    <path d="M45 15C45 15 38 25 30 25C35 18 45 15 45 15Z" fill="#FDA4AF"/>
+    <path d="M45 15C45 15 35 22 30 15C35 8 45 15 45 15Z" fill="#FDA4AF"/>
+    <circle cx="45" cy="15" r="5" fill="#FB7185"/>
+    <!-- 줄기 -->
+    <path d="M45 20L45 55" stroke="#86EFAC" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M45 35C50 30 58 32 60 28" stroke="#86EFAC" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M45 42C40 37 32 39 30 35" stroke="#86EFAC" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </g>
+  <text x="400" y="260" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#F9A8D4">PRESSCO 21</text>
+</svg>

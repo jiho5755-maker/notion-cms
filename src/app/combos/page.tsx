@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { getCombos } from "@/lib/notion";
+import { getNotionImageUrl } from "@/lib/image";
 import {
   Card,
   CardHeader,
@@ -57,17 +58,15 @@ export default async function CombosPage() {
             >
               <Card className="overflow-hidden transition-shadow hover:shadow-md">
                 {/* 썸네일 이미지 (첫번째) */}
-                {combo.thumbnails.length > 0 && (
-                  <div className="relative aspect-video overflow-hidden">
-                    <Image
-                      src={`/api/notion-image?url=${encodeURIComponent(combo.thumbnails[0])}`}
-                      alt={combo.title}
-                      fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      className="object-cover transition-transform group-hover:scale-105"
-                    />
-                  </div>
-                )}
+                <div className="relative aspect-video overflow-hidden">
+                  <Image
+                    src={getNotionImageUrl(combo.thumbnails[0])}
+                    alt={combo.title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover transition-transform group-hover:scale-105"
+                  />
+                </div>
 
                 <CardHeader>
                   {/* 난이도 배지 */}

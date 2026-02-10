@@ -9,6 +9,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { getTutorials, getCombos, getSeasons } from "@/lib/notion";
+import { getNotionImageUrl } from "@/lib/image";
 import { TutorialCard } from "@/components/shared/tutorial-card";
 import { DifficultyBadge } from "@/components/shared/difficulty-badge";
 import { Button } from "@/components/ui/button";
@@ -162,17 +163,15 @@ export default async function HomePage() {
                   className="overflow-hidden transition-shadow hover:shadow-md"
                 >
                   {/* 썸네일 */}
-                  {combo.thumbnails[0] && (
-                    <div className="relative aspect-video overflow-hidden">
-                      <Image
-                        src={`/api/notion-image?url=${encodeURIComponent(combo.thumbnails[0])}`}
-                        alt={combo.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
+                  <div className="relative aspect-video overflow-hidden">
+                    <Image
+                      src={getNotionImageUrl(combo.thumbnails[0])}
+                      alt={combo.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      className="object-cover"
+                    />
+                  </div>
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <DifficultyBadge difficulty={combo.difficulty} />
@@ -209,15 +208,13 @@ export default async function HomePage() {
           <div className="mx-auto max-w-6xl px-6">
             <div className="relative overflow-hidden rounded-2xl">
               {/* 배경 이미지 */}
-              {activeSeason.heroImage && (
-                <Image
-                  src={`/api/notion-image?url=${encodeURIComponent(activeSeason.heroImage)}`}
-                  alt={activeSeason.title}
-                  fill
-                  sizes="(max-width: 1200px) 100vw, 1152px"
-                  className="object-cover"
-                />
-              )}
+              <Image
+                src={getNotionImageUrl(activeSeason.heroImage)}
+                alt={activeSeason.title}
+                fill
+                sizes="(max-width: 1200px) 100vw, 1152px"
+                className="object-cover"
+              />
 
               {/* 오버레이 + 콘텐츠 */}
               <div className="relative flex min-h-[300px] flex-col items-start justify-center gap-4 bg-black/50 p-8 md:min-h-[360px] md:p-12">

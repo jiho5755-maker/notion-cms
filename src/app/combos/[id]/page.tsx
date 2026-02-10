@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCombos, getComboById } from "@/lib/notion";
+import { getNotionImageUrl } from "@/lib/image";
 import { DifficultyBadge } from "@/components/shared/difficulty-badge";
 import { MaterialSidebar } from "@/components/shared/material-sidebar";
 import { ContentRenderer } from "@/components/shared/content-renderer";
@@ -118,7 +119,7 @@ export default async function ComboDetailPage({ params }: ComboPageParams) {
                   className="relative aspect-square overflow-hidden rounded-lg"
                 >
                   <Image
-                    src={`/api/notion-image?url=${encodeURIComponent(url)}`}
+                    src={getNotionImageUrl(url)}
                     alt={`${combo.title} 이미지 ${index + 1}`}
                     fill
                     sizes="(max-width: 768px) 100vw, 50vw"

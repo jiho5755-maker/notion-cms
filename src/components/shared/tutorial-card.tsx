@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { getNotionImageUrl } from "@/lib/image";
 import {
   Card,
   CardHeader,
@@ -27,7 +28,7 @@ export function TutorialCard({ tutorial, className }: TutorialCardProps) {
         {/* 커버 이미지 (16:9 비율) */}
         <div className="relative aspect-video overflow-hidden">
           <Image
-            src={`/api/notion-image?url=${encodeURIComponent(tutorial.coverImage)}`}
+            src={getNotionImageUrl(tutorial.coverImage)}
             alt={tutorial.title}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

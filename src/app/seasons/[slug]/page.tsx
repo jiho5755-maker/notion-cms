@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CalendarDays, ArrowLeft } from "lucide-react";
 import { getSeasons, getSeasonBySlug } from "@/lib/notion";
+import { getNotionImageUrl } from "@/lib/image";
 import { ContentRenderer } from "@/components/shared/content-renderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,16 +66,14 @@ export default async function SeasonDetailPage({ params }: PageParams) {
       {/* 히어로 섹션 */}
       <section className="relative flex min-h-[50vh] items-center justify-center overflow-hidden md:min-h-[60vh]">
         {/* 배경 이미지 */}
-        {season.heroImage && (
-          <Image
-            src={`/api/notion-image?url=${encodeURIComponent(season.heroImage)}`}
-            alt={season.title}
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-        )}
+        <Image
+          src={getNotionImageUrl(season.heroImage)}
+          alt={season.title}
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
 
         {/* 반투명 어두운 오버레이 */}
         <div className="absolute inset-0 bg-black/50" />
@@ -139,17 +138,15 @@ export default async function SeasonDetailPage({ params }: PageParams) {
                 >
                   <Card className="overflow-hidden transition-shadow hover:shadow-md">
                     {/* 커버 이미지 */}
-                    {tutorial.coverImage && (
-                      <div className="relative aspect-video overflow-hidden">
-                        <Image
-                          src={`/api/notion-image?url=${encodeURIComponent(tutorial.coverImage)}`}
-                          alt={tutorial.title}
-                          fill
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          className="object-cover transition-transform group-hover:scale-105"
-                        />
-                      </div>
-                    )}
+                    <div className="relative aspect-video overflow-hidden">
+                      <Image
+                        src={getNotionImageUrl(tutorial.coverImage)}
+                        alt={tutorial.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover transition-transform group-hover:scale-105"
+                      />
+                    </div>
                     <CardHeader>
                       <CardTitle className="text-base group-hover:underline">
                         {tutorial.title}
