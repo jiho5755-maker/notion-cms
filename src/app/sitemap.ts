@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
+import { getTutorials, getCombos, getSeasons } from "@/lib/notion";
 
 /**
  * 사이트맵 생성
  *
- * 정적 페이지 + 동적 페이지(NotCMS 연동 후 추가 예정)를 포함한다.
+ * 정적 페이지 + 동적 페이지(Notion 데이터 기반)를 포함한다.
  * Next.js App Router가 /sitemap.xml로 자동 서빙한다.
  */
 
@@ -11,6 +12,13 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://pressco21.vercel.app";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // ── Notion 데이터 조회 (병렬) ──
+  const [tutorials, combos, seasons] = await Promise.all([
+    getTutorials(),
+    getCombos(),
+    getSeasons(),
+  ]);
+
   // ── 정적 페이지 ──
   const staticPages: MetadataRoute.Sitemap = [
     {
@@ -31,40 +39,59 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.8,
     },
+    {
+      url: `${SITE_URL}/seasons`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    // 정적 페이지 (Wave 3 고급 기능)
+    {
+      url: `${SITE_URL}/about`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: `${SITE_URL}/terms`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${SITE_URL}/privacy`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
   ];
 
-  // ── 동적 페이지 (TODO: NotCMS 연동 후 구현) ──
-  // NotCMS에서 튜토리얼 목록을 가져와 /tutorials/[slug] URL 생성
-  // const tutorials = await fetchTutorials();
-  // const tutorialPages = tutorials.map((t) => ({
-  //   url: `${SITE_URL}/tutorials/${t.slug}`,
-  //   lastModified: new Date(t.updatedAt),
-  //   changeFrequency: "weekly" as const,
-  //   priority: 0.7,
-  // }));
+  // ── 동적 페이지 (Notion 데이터 기반) ──
+  const tutorialPages = tutorials.map((t) => ({
+    url: `${SITE_URL}/tutorials/${t.slug}`,
+    lastModified: new Date(t.createdAt),
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+  }));
 
-  // NotCMS에서 재료 조합 목록을 가져와 /combos/[id] URL 생성
-  // const combos = await fetchCombos();
-  // const comboPages = combos.map((c) => ({
-  //   url: `${SITE_URL}/combos/${c.id}`,
-  //   lastModified: new Date(c.updatedAt),
-  //   changeFrequency: "weekly" as const,
-  //   priority: 0.6,
-  // }));
+  const comboPages = combos.map((c) => ({
+    url: `${SITE_URL}/combos/${c.id}`,
+    lastModified: new Date(c.createdAt),
+    changeFrequency: "weekly" as const,
+    priority: 0.6,
+  }));
 
-  // NotCMS에서 시즌 캠페인 목록을 가져와 /seasons/[slug] URL 생성
-  // const seasons = await fetchSeasons();
-  // const seasonPages = seasons.map((s) => ({
-  //   url: `${SITE_URL}/seasons/${s.slug}`,
-  //   lastModified: new Date(s.updatedAt),
-  //   changeFrequency: "monthly" as const,
-  //   priority: 0.8,
-  // }));
+  const seasonPages = seasons.map((s) => ({
+    url: `${SITE_URL}/seasons/${s.slug}`,
+    lastModified: new Date(s.createdAt),
+    changeFrequency: "monthly" as const,
+    priority: 0.8,
+  }));
 
   return [
     ...staticPages,
-    // ...tutorialPages,
-    // ...comboPages,
-    // ...seasonPages,
+    ...tutorialPages,
+    ...comboPages,
+    ...seasonPages,
   ];
 }

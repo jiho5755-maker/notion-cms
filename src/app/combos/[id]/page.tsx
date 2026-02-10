@@ -15,6 +15,11 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import {
+  generateWebPageJsonLd,
+  generateBreadcrumbJsonLd,
+} from "@/lib/json-ld";
+import type { WebPageInput, BreadcrumbItem } from "@/lib/json-ld";
 
 // ------------------------------------------------------------
 // 타입 (combos/[id]는 slug가 아닌 id를 사용)
@@ -70,8 +75,37 @@ export default async function ComboDetailPage({ params }: ComboPageParams) {
     (m) => m.makeshopUrl && m.makeshopUrl.length > 0,
   );
 
+  // BreadcrumbList JSON-LD
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { name: "홈", url: "/" },
+    { name: "재료 조합", url: "/combos" },
+    { name: combo.title, url: `/combos/${combo.id}` },
+  ];
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd(breadcrumbItems);
+
+  // WebPage JSON-LD
+  const comboPage: WebPageInput = {
+    name: combo.title,
+    description: combo.excerpt,
+    url: `/combos/${combo.id}`,
+    image: combo.thumbnails[0] || "",
+    dateModified: combo.createdAt,
+  };
+  const webPageJsonLd = generateWebPageJsonLd(comboPage);
+
   return (
-    <section className="container mx-auto px-4 py-12">
+    <>
+      {/* JSON-LD 스크립트 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+
+      <section className="container mx-auto px-4 py-12">
       {/* 브레드크럼 */}
       <nav aria-label="breadcrumb" className="mb-8">
         <ol className="text-muted-foreground flex items-center gap-1.5 text-sm">
@@ -211,6 +245,7 @@ export default async function ComboDetailPage({ params }: ComboPageParams) {
           </div>
         </aside>
       </div>
-    </section>
+      </section>
+    </>
   );
 }

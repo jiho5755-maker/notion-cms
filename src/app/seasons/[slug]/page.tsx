@@ -13,7 +13,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  generateWebPageJsonLd,
+  generateBreadcrumbJsonLd,
+} from "@/lib/json-ld";
 import type { PageParams } from "@/types";
+import type { WebPageInput, BreadcrumbItem } from "@/lib/json-ld";
 
 // ------------------------------------------------------------
 // ISR: 정적 경로 사전 생성
@@ -61,8 +66,37 @@ export default async function SeasonDetailPage({ params }: PageParams) {
     notFound();
   }
 
+  // BreadcrumbList JSON-LD
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { name: "홈", url: "/" },
+    { name: "시즌 캠페인", url: "/seasons" },
+    { name: season.title, url: `/seasons/${season.slug}` },
+  ];
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd(breadcrumbItems);
+
+  // WebPage JSON-LD
+  const seasonPage: WebPageInput = {
+    name: season.title,
+    description: season.excerpt,
+    url: `/seasons/${season.slug}`,
+    image: season.heroImage,
+    dateModified: season.createdAt,
+  };
+  const webPageJsonLd = generateWebPageJsonLd(seasonPage);
+
   return (
-    <div className="flex flex-col">
+    <>
+      {/* JSON-LD 스크립트 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+
+      <div className="flex flex-col">
       {/* 히어로 섹션 */}
       <section className="relative flex min-h-[50vh] items-center justify-center overflow-hidden md:min-h-[60vh]">
         {/* 배경 이미지 */}
@@ -159,6 +193,7 @@ export default async function SeasonDetailPage({ params }: PageParams) {
           </div>
         </section>
       )}
-    </div>
+      </div>
+    </>
   );
 }

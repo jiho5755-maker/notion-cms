@@ -7,7 +7,13 @@ import { YoutubeEmbed } from "@/components/shared/youtube-embed";
 import { MaterialSidebar } from "@/components/shared/material-sidebar";
 import { ContentRenderer } from "@/components/shared/content-renderer";
 import { Separator } from "@/components/ui/separator";
+import {
+  generateHowToJsonLd,
+  generateBreadcrumbJsonLd,
+} from "@/lib/json-ld";
+import { convertDurationToISO } from "@/lib/duration";
 import type { PageParams } from "@/types";
+import type { TutorialInput, BreadcrumbItem } from "@/lib/json-ld";
 
 // ------------------------------------------------------------
 // 정적 파라미터 생성 (ISR)
@@ -50,8 +56,43 @@ export default async function TutorialDetailPage({ params }: PageParams) {
     notFound();
   }
 
+  // BreadcrumbList JSON-LD
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { name: "홈", url: "/" },
+    { name: "튜토리얼", url: "/tutorials" },
+    { name: tutorial.title, url: `/tutorials/${tutorial.slug}` },
+  ];
+  const breadcrumbJsonLd = generateBreadcrumbJsonLd(breadcrumbItems);
+
+  // HowTo JSON-LD (단순화 전략: 단일 step)
+  const tutorialInput: TutorialInput = {
+    name: tutorial.title,
+    description: tutorial.excerpt,
+    image: tutorial.coverImage,
+    totalTime: convertDurationToISO(tutorial.duration),
+    steps: [
+      {
+        name: tutorial.title,
+        text: tutorial.excerpt,
+      },
+    ],
+    supplies: tutorial.materials.map((m) => ({ name: m.title })),
+  };
+  const howToJsonLd = generateHowToJsonLd(tutorialInput);
+
   return (
-    <section className="container mx-auto px-4 py-12">
+    <>
+      {/* JSON-LD 스크립트 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+
+      <section className="container mx-auto px-4 py-12">
       {/* 브레드크럼 */}
       <nav aria-label="breadcrumb" className="mb-8">
         <ol className="text-muted-foreground flex items-center gap-1.5 text-sm">
@@ -136,6 +177,7 @@ export default async function TutorialDetailPage({ params }: PageParams) {
           </div>
         </aside>
       </div>
-    </section>
+      </section>
+    </>
   );
 }
