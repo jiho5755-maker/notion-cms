@@ -93,21 +93,30 @@ src/
 - cn() 유틸: `import { cn } from "@/lib/utils"`
 - Toaster: `import { Toaster } from "sonner"`
 
-## 디지털 부서 조직 (서브에이전트)
+## AI 전문가 조직 (25개 에이전트 + coordinator)
 
-| 부서 | 역할 | 담당 파일 |
-|------|------|----------|
-| ① 전략기획 | 시장 분석, 우선순위 | docs/ |
-| ② 프로덕트 | 타입, DB 스키마 | src/types/, src/notcms/ |
-| ③ 디자인 | UI/UX, 테마, 레이아웃 | src/components/layout/, globals.css |
-| ④ 콘텐츠 | 페이지 콘텐츠, 공유 컴포넌트 | src/app/tutorials,combos,seasons/, src/components/shared/ |
-| ⑤ FE개발 | 페이지 구현, ISR | src/app/ (page 파일) |
-| ⑥ BE개발 | API, 데이터 | src/lib/, src/app/api/, next.config.ts |
-| ⑦ 인프라 | 빌드, 배포, 환경 | package.json, .env, Vercel |
-| ⑧ 마케팅 | SEO, 메타 | sitemap.ts, robots.ts, json-ld.ts |
-| ⑨ 데이터 | 분석, 대시보드 | (Phase 2) |
-| ⑩ QA | 테스트, 검증 | Playwright, 빌드 검증 |
-| ⑪ 고객경험 | FAQ, 챗봇 | (Phase 2) |
+> 상세: `.claude/agents/REFERENCE.md` 참조
+
+```
+coordinator (총괄) — cyan
+├── 기술본부 (9명) — blue
+│   fullstack-architect, frontend-engineer, backend-engineer, ui-designer
+│   db-architect, devops-engineer, code-reviewer, qa-engineer, security-auditor
+├── 사업본부 (4명) — green
+│   product-manager, marketing-strategist, sales-analyst, crm-specialist
+├── 경영지원본부 (7명) — yellow
+│   hr-labor-expert(opus), payroll-tax-expert(opus), accounting-expert
+│   document-admin-expert, tax-incentive-expert, employment-subsidy-expert(opus)
+│   sme-policy-expert
+├── 콘텐츠/교육본부 (3명) — magenta
+│   content-strategist, curriculum-designer, product-merchandiser
+└── 데이터/지식 (2명) — white
+    data-analyst, technical-writer(haiku)
+```
+
+### 주요 워크플로우
+- **W1 시즌 캠페인**: content-strategist → product-merchandiser → frontend-engineer → marketing-strategist
+- **W5 기능 구현**: product-manager → fullstack-architect → frontend-engineer + backend-engineer → code-reviewer → qa-engineer
 
 ## 실행 로드맵
 
