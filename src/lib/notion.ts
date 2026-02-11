@@ -10,7 +10,7 @@ import { NotionToMarkdown } from "notion-to-md";
 import type {
   PageObjectResponse,
 } from "@notionhq/client/build/src/api-endpoints";
-import type { Tutorial, Combo, Season, Category, Material } from "@/types";
+import type { Tutorial, Combo, Season, Category, Material, Template } from "@/types";
 
 // ------------------------------------------------------------
 // Notion 클라이언트 초기화
@@ -618,4 +618,51 @@ async function getTutorialSummariesByIds(
     console.error("[Notion] 튜토리얼 요약 조회 실패:", error);
     return [];
   }
+}
+
+// ------------------------------------------------------------
+// 공개 API: 답변 템플릿
+// ------------------------------------------------------------
+
+/**
+ * Response Templates DB에서 모든 템플릿을 조회한다.
+ * ISR 캐싱: 1시간
+ */
+export async function getTemplates(): Promise<Template[]> {
+  return unstable_cache(
+    async () => {
+      try {
+        const client = getNotionClient();
+        const dbId = process.env.NOTION_DB_TEMPLATES;
+
+        if (!dbId) {
+          console.warn("[Notion] NOTION_DB_TEMPLATES 환경 변수가 설정되지 않았습니다.");
+          return [];
+        }
+
+        const response = await client.databases.query({
+          database_id: dbId,
+          sorts: [
+            { property: "사용빈도", direction: "descending" },
+            { property: "카테고리", direction: "ascending" },
+          ],
+        });
+
+        return response.results
+          .filter((page: any): page is PageObjectResponse => "properties" in page)
+          .map((page: PageObjectResponse) => ({
+            id: page.id,
+            name: getProp(page, "템플릿명") as string,
+            category: getProp(page, "카테고리") as string,
+            content: getProp(page, "답변내용") as string,
+            usageCount: (getProp(page, "사용빈도") as number) || 0,
+          }));
+      } catch (error) {
+        console.error("[Notion] 템플릿 목록 조회 실패:", error);
+        return [];
+      }
+    },
+    ["templates"],
+    { revalidate: 3600, tags: ["templates"] }
+  )();
 }

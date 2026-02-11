@@ -15,6 +15,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { getInquiryById } from "@/lib/inquiry";
+import { getTemplates } from "@/lib/notion";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { PriorityBadge } from "@/components/shared/priority-badge";
 import { ReplyForm } from "../_components/reply-form";
@@ -41,7 +42,10 @@ export async function generateMetadata({ params }: InquiryPageParams) {
 
 export default async function InquiryDetailPage({ params }: InquiryPageParams) {
   const resolvedParams = await params;
-  const inquiry = await getInquiryById(resolvedParams.id);
+  const [inquiry, templates] = await Promise.all([
+    getInquiryById(resolvedParams.id),
+    getTemplates(),
+  ]);
 
   if (!inquiry) {
     notFound();
@@ -180,7 +184,7 @@ export default async function InquiryDetailPage({ params }: InquiryPageParams) {
             <AlertCircle className="h-5 w-5" />
             <p className="text-sm font-medium">답변 대기 중입니다.</p>
           </div>
-          <ReplyForm inquiryId={inquiry.id} />
+          <ReplyForm inquiryId={inquiry.id} templates={templates} />
         </div>
       )}
     </div>
