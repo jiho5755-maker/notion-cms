@@ -2,16 +2,17 @@
 
 /**
  * FAQ 그리드 컴포넌트
- * - 카테고리 탭 필터
- * - 검색 기능
- * - FAQ 카드 목록
+ * - 카테고리 탭 필터 (shadcn/ui Tabs)
+ * - 실시간 검색 (debounce 300ms)
+ * - 검색어 하이라이트
+ * - 검색 결과 개수 표시
  */
 
-import { useState, useMemo } from "react";
-import { Search } from "lucide-react";
+import { useState, useMemo, useCallback } from "react";
 import type { FAQ, FAQCategory } from "@/types/faq";
-import { FAQCard } from "./faq-card";
-import { EmptyState } from "@/components/shared/empty-state";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FAQSearch } from "./faq-search";
+import { FAQList } from "./faq-list";
 
 interface FAQGridProps {
   faqs: FAQ[];
@@ -24,76 +25,73 @@ export function FAQGrid({ faqs, categories }: FAQGridProps) {
   >("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 필터링된 FAQ 목록
-  const filteredFAQs = useMemo(() => {
-    return faqs.filter((faq) => {
-      const matchesCategory =
-        selectedCategory === "all" || faq.category === selectedCategory;
+  // 검색 콜백 (useCallback으로 메모이제이션)
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
-      const matchesSearch =
-        searchQuery === "" ||
-        faq.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        faq.content.toLowerCase().includes(searchQuery.toLowerCase());
+  // 카테고리별로 필터링된 FAQ 목록
+  const filteredFAQsByCategory = useMemo(() => {
+    if (selectedCategory === "all") return faqs;
+    return faqs.filter((faq) => faq.category === selectedCategory);
+  }, [faqs, selectedCategory]);
 
-      return matchesCategory && matchesSearch;
+  // 카테고리별 FAQ 개수
+  const categoryCount = useMemo(() => {
+    const count: Partial<Record<FAQCategory | "all", number>> = {
+      all: faqs.length,
+    };
+    categories.forEach((category) => {
+      count[category] = faqs.filter((faq) => faq.category === category).length;
     });
-  }, [faqs, selectedCategory, searchQuery]);
+    return count;
+  }, [faqs, categories]);
 
   return (
     <div>
+      {/* 검색 바 */}
+      <div className="mb-6">
+        <FAQSearch onSearch={handleSearch} />
+      </div>
+
       {/* 카테고리 탭 */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        <button
-          onClick={() => setSelectedCategory("all")}
-          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-            selectedCategory === "all"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-        >
-          전체
-        </button>
-        {categories.map((category) => (
-          <button
-            key={category}
-            onClick={() => setSelectedCategory(category)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              selectedCategory === category
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            {category}
-          </button>
-        ))}
-      </div>
-
-      {/* 검색 */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="FAQ 검색..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-md border bg-background px-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-      </div>
-
-      {/* FAQ 목록 */}
-      {filteredFAQs.length > 0 ? (
-        <div className="space-y-4">
-          {filteredFAQs.map((faq) => (
-            <FAQCard key={faq.id} faq={faq} />
+      <Tabs
+        value={selectedCategory}
+        onValueChange={(value) =>
+          setSelectedCategory(value as FAQCategory | "all")
+        }
+        className="w-full"
+      >
+        <TabsList className="mb-6 h-auto flex-wrap justify-start gap-2 bg-transparent p-0">
+          <TabsTrigger value="all" className="rounded-full">
+            전체 ({categoryCount.all})
+          </TabsTrigger>
+          {categories.map((category) => (
+            <TabsTrigger
+              key={category}
+              value={category}
+              className="rounded-full"
+            >
+              {category} ({categoryCount[category]})
+            </TabsTrigger>
           ))}
-        </div>
-      ) : (
-        <EmptyState
-          type="search"
-          message="검색 결과가 없습니다"
-          description="다른 키워드로 검색해보세요"
-        />
-      )}
+        </TabsList>
+
+        {/* 전체 탭 */}
+        <TabsContent value="all" className="mt-0">
+          <FAQList faqs={faqs} searchQuery={searchQuery} />
+        </TabsContent>
+
+        {/* 카테고리별 탭 */}
+        {categories.map((category) => (
+          <TabsContent key={category} value={category} className="mt-0">
+            <FAQList
+              faqs={filteredFAQsByCategory}
+              searchQuery={searchQuery}
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   );
 }
