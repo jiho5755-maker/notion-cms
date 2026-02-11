@@ -6,6 +6,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LayoutDashboard, Users, Package, MessageSquare } from "lucide-react";
+import { AdminHeader } from "./_components/admin-header";
 
 export const metadata: Metadata = {
   title: "관리자 - PRESSCO 21",
@@ -54,13 +55,16 @@ export default function AdminLayout({
               </nav>
             </div>
 
-            {/* 홈으로 돌아가기 */}
-            <Link
-              href="/"
-              className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
-            >
-              홈으로 돌아가기
-            </Link>
+            {/* 홈으로 돌아가기 + 로그아웃 */}
+            <div className="flex items-center gap-4">
+              <Link
+                href="/"
+                className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors"
+              >
+                홈으로 돌아가기
+              </Link>
+              <AdminHeader />
+            </div>
           </div>
         </div>
       </header>
