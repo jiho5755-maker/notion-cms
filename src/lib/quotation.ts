@@ -100,34 +100,31 @@ export async function saveQuotationHistory(
     await client.pages.create({
       parent: { database_id: dbId },
       properties: {
-        quotationNumber: {
+        견적번호: {
           title: [{ text: { content: quotationNumber } }],
         },
-        customerName: {
+        고객명: {
           rich_text: [{ text: { content: customer.name } }],
         },
-        customerEmail: {
+        이메일: {
           email: customer.email,
         },
-        customerPhone: {
+        전화번호: {
           phone_number: customer.phone,
         },
-        totalSupplyPrice: {
+        공급가액: {
           number: totalAmount,
         },
-        totalVAT: {
+        부가세: {
           number: vatAmount,
         },
-        grandTotal: {
+        총액: {
           number: grandTotal,
         },
-        itemCount: {
-          number: items.length,
-        },
-        items: {
+        상품목록: {
           rich_text: [{ text: { content: JSON.stringify(items, null, 2) } }],
         },
-        notes: {
+        문의사항: {
           rich_text: notes
             ? [{ text: { content: notes } }]
             : [{ text: { content: "" } }],
