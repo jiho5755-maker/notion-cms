@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { createInquiry } from "@/lib/inquiry";
+import { createInquiry } from "@/actions/inquiry";
 import type { InquiryCategory } from "@/types/inquiry";
 
 export async function POST(request: Request) {

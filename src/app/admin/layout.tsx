@@ -5,7 +5,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LayoutDashboard, Users, Package } from "lucide-react";
+import { LayoutDashboard, Users, Package, MessageSquare } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "관리자 - PRESSCO 21",
@@ -17,6 +17,7 @@ const navigation = [
   { name: "대시보드", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "고객 관리", href: "/admin/customers", icon: Users },
   { name: "주문 관리", href: "/admin/orders", icon: Package },
+  { name: "문의 관리", href: "/admin/inquiries", icon: MessageSquare },
 ];
 
 export default function AdminLayout({

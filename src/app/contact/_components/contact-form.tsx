@@ -39,10 +39,13 @@ const contactSchema = z.object({
 type ContactFormData = z.infer<typeof contactSchema>;
 
 const CATEGORIES: InquiryCategory[] = [
+  "상품 문의",
+  "주문/배송",
+  "반품/교환",
   "일반 문의",
-  "구매 문의",
-  "제휴 문의",
-  "기술 지원",
+  "제안",
+  "불만",
+  "기타",
 ];
 
 export function ContactForm() {
