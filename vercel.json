@@ -1,0 +1,15 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "pressco21.vercel.app"
+        }
+      ],
+      "destination": "https://hub.foreverlove.co.kr/:path*",
+      "permanent": true
+    }
+  ]
+}

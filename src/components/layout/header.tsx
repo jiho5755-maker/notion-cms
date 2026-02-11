@@ -11,6 +11,7 @@ import {
   Building2,
   FileText,
   Menu,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +33,9 @@ const NAV_ITEMS = [
   { label: "B2B", href: "/wholesale", icon: Building2 },
 ] as const;
 
+/** 쇼핑몰 링크 (외부) */
+const SHOP_URL = "https://www.foreverlove.co.kr";
+
 export function Header() {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -47,6 +51,17 @@ export function Header() {
 
         {/* 데스크톱 네비게이션 (md 이상) */}
         <nav className="hidden items-center gap-1 md:flex">
+          {/* 쇼핑몰 링크 (외부) */}
+          <a
+            href={SHOP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          >
+            <ShoppingBag className="size-4" />
+            쇼핑몰
+          </a>
+
           {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
             const isActive =
               pathname === href || pathname.startsWith(href + "/");
@@ -92,6 +107,18 @@ export function Header() {
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-1 px-4">
+                {/* 쇼핑몰 링크 (외부) */}
+                <a
+                  href={SHOP_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setSheetOpen(false)}
+                  className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                >
+                  <ShoppingBag className="size-4" />
+                  쇼핑몰
+                </a>
+
                 {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
                   const isActive =
                     pathname === href || pathname.startsWith(href + "/");
