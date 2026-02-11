@@ -38,9 +38,31 @@ export async function generateMetadata({
     return { title: "튜토리얼을 찾을 수 없습니다" };
   }
 
+  // Open Graph 이미지: 커버 이미지가 있으면 사용, 없으면 기본 이미지
+  const ogImage = tutorial.coverImage || "/images/og-default.png";
+
   return {
     title: tutorial.title,
     description: tutorial.excerpt,
+    openGraph: {
+      title: tutorial.title,
+      description: tutorial.excerpt,
+      type: "article",
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: tutorial.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: tutorial.title,
+      description: tutorial.excerpt,
+      images: [ogImage],
+    },
   };
 }
 

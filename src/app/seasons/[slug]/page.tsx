@@ -43,13 +43,30 @@ export async function generateMetadata({
     return { title: "시즌 캠페인을 찾을 수 없습니다" };
   }
 
+  // Open Graph 이미지: heroImage가 있으면 사용, 없으면 기본 이미지
+  const ogImage = season.heroImage || "/images/og-default.png";
+
   return {
     title: `${season.title} | PRESSCO 21`,
     description: season.excerpt,
     openGraph: {
       title: season.title,
       description: season.excerpt,
-      images: season.heroImage ? [{ url: season.heroImage }] : [],
+      type: "article",
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: season.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: season.title,
+      description: season.excerpt,
+      images: [ogImage],
     },
   };
 }

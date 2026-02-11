@@ -57,6 +57,8 @@ export interface Material {
   makeshopUrl: string;
   /** 썸네일 이미지 URL 목록 */
   thumbnails: string[];
+  /** 메이크샵 상품 ID — 장바구니 URL 생성용 (선택 사항) */
+  makeshopProductId?: string;
 }
 
 // ------------------------------------------------------------

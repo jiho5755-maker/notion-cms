@@ -542,6 +542,7 @@ async function getMaterialById(id: string): Promise<Material | null> {
       price: getProp(page, "price") as number,
       makeshopUrl: getProp(page, "makeshopUrl") as string,
       thumbnails: getFiles(page, "thumbnails"),
+      makeshopProductId: getProp(page, "makeshopProductId") as string | undefined,
     };
   } catch (error) {
     console.error(`[Notion] 재료 조회 실패 (${id}):`, error);

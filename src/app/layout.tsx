@@ -29,9 +29,27 @@ export const metadata: Metadata = {
   description:
     "압화(pressed flower) 전문 — 재료, 도구, 만들기 키트, 교육. 튜토리얼, 재료 조합 가이드, B2B 카탈로그까지.",
   openGraph: {
+    title: "PRESSCO 21 — 꽃으로 노는 모든 방법",
+    description:
+      "압화(pressed flower) 전문 — 재료, 도구, 만들기 키트, 교육. 튜토리얼, 재료 조합 가이드, B2B 카탈로그까지.",
     siteName: "PRESSCO 21",
     locale: "ko_KR",
     type: "website",
+    images: [
+      {
+        url: "/images/og-default.png",
+        width: 1200,
+        height: 630,
+        alt: "PRESSCO 21 — 꽃으로 노는 모든 방법",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PRESSCO 21 — 꽃으로 노는 모든 방법",
+    description:
+      "압화(pressed flower) 전문 — 재료, 도구, 만들기 키트, 교육. 튜토리얼, 재료 조합 가이드, B2B 카탈로그까지.",
+    images: ["/images/og-default.png"],
   },
 };
 
