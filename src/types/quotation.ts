@@ -38,3 +38,10 @@ export interface Quotation {
   vatAmount: number; // 부가세 합
   grandTotal: number; // 최종 합계 (= totalAmount + vatAmount)
 }
+
+/** 이메일 템플릿 타입 */
+export interface EmailTemplate {
+  subject: string;
+  html: string;
+  text: string;
+}
