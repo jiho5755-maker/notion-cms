@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "youtube:desc": "tsx scripts/generate-youtube-description.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
