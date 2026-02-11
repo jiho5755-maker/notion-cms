@@ -113,7 +113,7 @@ export function ManualProductForm({ onAddItem }: ManualProductFormProps) {
                 name="price"
                 type="number"
                 min={0}
-                step={100}
+                step={1}
                 placeholder="예: 11000"
                 required
                 disabled={isSubmitting}

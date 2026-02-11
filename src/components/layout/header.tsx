@@ -12,6 +12,8 @@ import {
   FileText,
   Menu,
   ShoppingBag,
+  HelpCircle,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +31,8 @@ const NAV_ITEMS = [
   { label: "튜토리얼", href: "/tutorials", icon: BookOpen },
   { label: "재료 조합", href: "/combos", icon: Palette },
   { label: "시즌", href: "/seasons", icon: CalendarDays },
+  { label: "FAQ", href: "/faq", icon: HelpCircle },
+  { label: "문의", href: "/contact", icon: MessageCircle },
   { label: "견적서", href: "/quotation", icon: FileText },
   { label: "B2B", href: "/wholesale", icon: Building2 },
 ] as const;

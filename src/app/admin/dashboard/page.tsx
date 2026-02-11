@@ -6,10 +6,12 @@
 import type { Metadata } from "next";
 import { getCustomers, getOrders } from "@/lib/customer";
 import { calculateSalesStats } from "@/lib/sales-stats";
+import { getTopFAQs } from "@/lib/faq";
 import { SalesOverview } from "./_components/sales-overview";
 import { SalesChart } from "./_components/sales-chart";
 import { TopCustomers } from "./_components/top-customers";
 import { TopProducts } from "./_components/top-products";
+import { TopFAQs } from "./_components/top-faqs";
 
 export const metadata: Metadata = {
   title: "대시보드 - 관리자",
@@ -17,9 +19,10 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  const [customers, orders] = await Promise.all([
+  const [customers, orders, topFAQs] = await Promise.all([
     getCustomers(),
     getOrders(),
+    getTopFAQs(),
   ]);
 
   const stats = calculateSalesStats(customers, orders);
@@ -52,6 +55,9 @@ export default async function DashboardPage() {
         <TopCustomers customers={stats.topCustomers} />
         <TopProducts products={stats.topProducts} />
       </div>
+
+      {/* 인기 FAQ Top 10 */}
+      <TopFAQs faqs={topFAQs} />
     </div>
   );
 }

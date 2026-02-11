@@ -14,8 +14,12 @@ import { ManualProductForm } from "./manual-product-form";
 import { QuotationCart } from "./quotation-cart";
 import { CustomerForm, customerSchema } from "./customer-form";
 import { calculateSubtotal } from "@/lib/price";
-import { generateQuotationId, calculateQuotationTotal } from "@/lib/quotation";
+import {
+  generateQuotationId,
+  calculateQuotationTotal,
+} from "@/lib/quotation";
 import { generateQuotationPDF } from "@/lib/pdf";
+import { generateQuotationAction } from "@/actions/quotation";
 import type { MakeshopProduct, QuotationItem, CustomerInfo, Quotation } from "@/types";
 
 /** 셀프 견적서 메인 클라이언트 컴포넌트 */
@@ -137,6 +141,34 @@ export function QuotationClient() {
       URL.revokeObjectURL(url);
 
       toast.success("PDF 다운로드 완료!", { id: toastId });
+
+      // 5. Server Action 호출 (노션 저장 + 이메일 발송)
+      toast.loading("견적서를 저장하고 이메일을 발송하는 중...", { id: toastId });
+
+      const pdfBuffer = await pdfBlob.arrayBuffer();
+      const result = await generateQuotationAction(
+        quotation.customer,
+        quotation.items,
+        pdfBuffer
+      );
+
+      if (result.success) {
+        if (result.error) {
+          // 부분 성공 (PDF 다운로드 + 노션 저장 성공, 이메일 실패)
+          toast.warning(result.error, { id: toastId });
+        } else {
+          // 완전 성공
+          toast.success(
+            `견적서가 이메일로 발송되었습니다! (${result.quotationNumber})`,
+            { id: toastId }
+          );
+        }
+      } else {
+        // 실패 (PDF는 다운로드됨)
+        toast.warning(`PDF는 다운로드되었으나 저장/발송에 실패했습니다: ${result.error}`, {
+          id: toastId,
+        });
+      }
     } catch (error) {
       console.error("PDF 생성 실패:", error);
       toast.error("PDF 생성에 실패했습니다.", { id: toastId });

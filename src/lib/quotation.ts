@@ -1,5 +1,6 @@
-import type { QuotationItem } from "@/types/quotation";
+import type { QuotationItem, CustomerInfo } from "@/types/quotation";
 import { calculateSupplyPrice } from "./price";
+import { Client } from "@notionhq/client";
 
 /**
  * 견적서 합계 계산 (역산 방식)
@@ -40,4 +41,105 @@ export function calculateQuotationTotal(items: QuotationItem[]) {
 /** 견적서 ID 생성 (타임스탬프 기반) */
 export function generateQuotationId(): string {
   return `Q${Date.now()}`;
+}
+
+/**
+ * 견적서 번호 생성 (Q20260211-001 형식)
+ * - Q + 날짜(YYYYMMDD) + 순번(3자리)
+ */
+export function generateQuotationNumber(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const sequence = String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+
+  return `Q${year}${month}${day}-${sequence}`;
+}
+
+// ------------------------------------------------------------
+// Notion 클라이언트 초기화
+// ------------------------------------------------------------
+
+function getNotionClient(): Client {
+  if (!process.env.NOTION_TOKEN) {
+    throw new Error("[Notion] NOTION_TOKEN 환경 변수가 설정되지 않았습니다.");
+  }
+
+  return new Client({ auth: process.env.NOTION_TOKEN });
+}
+
+// ------------------------------------------------------------
+// 공개 API: 견적서 히스토리 저장
+// ------------------------------------------------------------
+
+/**
+ * 견적서 생성 내역을 Notion Quotations DB에 저장한다.
+ * - 에러 발생 시 콘솔 에러만 출력하고 예외를 throw하지 않음 (저장 실패가 치명적이지 않음)
+ */
+export async function saveQuotationHistory(
+  customer: CustomerInfo,
+  items: QuotationItem[],
+  notes?: string,
+): Promise<void> {
+  const client = getNotionClient();
+  const dbId = process.env.NOTION_DB_QUOTATIONS;
+
+  if (!dbId) {
+    console.warn(
+      "[Quotation] NOTION_DB_QUOTATIONS 환경 변수가 설정되지 않았습니다.",
+    );
+    return;
+  }
+
+  try {
+    const quotationNumber = generateQuotationNumber();
+    const { totalAmount, vatAmount, grandTotal } =
+      calculateQuotationTotal(items);
+
+    await client.pages.create({
+      parent: { database_id: dbId },
+      properties: {
+        quotationNumber: {
+          title: [{ text: { content: quotationNumber } }],
+        },
+        customerName: {
+          rich_text: [{ text: { content: customer.name } }],
+        },
+        customerEmail: {
+          email: customer.email,
+        },
+        customerPhone: {
+          phone_number: customer.phone,
+        },
+        totalSupplyPrice: {
+          number: totalAmount,
+        },
+        totalVAT: {
+          number: vatAmount,
+        },
+        grandTotal: {
+          number: grandTotal,
+        },
+        itemCount: {
+          number: items.length,
+        },
+        items: {
+          rich_text: [{ text: { content: JSON.stringify(items, null, 2) } }],
+        },
+        notes: {
+          rich_text: notes
+            ? [{ text: { content: notes } }]
+            : [{ text: { content: "" } }],
+        },
+      },
+    });
+
+    console.log(
+      `[Quotation] 히스토리 저장 성공: ${quotationNumber} (${customer.name})`,
+    );
+  } catch (error) {
+    console.error("[Quotation] saveQuotationHistory 에러:", error);
+    // 에러 무시 (히스토리 저장 실패는 치명적이지 않음)
+  }
 }

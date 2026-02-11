@@ -212,3 +212,20 @@ export async function incrementFAQViews(id: string): Promise<void> {
     // 에러 무시 (조회수 증가 실패는 치명적이지 않음)
   }
 }
+
+// ------------------------------------------------------------
+// 공개 API: FAQ 조회수 Top 10
+// ------------------------------------------------------------
+
+/**
+ * 조회수가 높은 FAQ Top 10을 반환한다.
+ * - 발행된 FAQ만 포함
+ * - views 내림차순 정렬
+ * - ISR 캐싱: 3600초 (1시간)
+ */
+export async function getTopFAQs(limit = 10): Promise<FAQ[]> {
+  const faqs = await getFAQs();
+
+  // 조회수 내림차순 정렬 후 limit 개수만큼 반환
+  return faqs.sort((a, b) => b.views - a.views).slice(0, limit);
+}
