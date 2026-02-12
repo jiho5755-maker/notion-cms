@@ -33,14 +33,15 @@ export interface Task {
   priorityScore: number; // Formula: complexity×20 + collaboration×20 + consequence×20
   dueDate: string;
   estimatedTime?: number; // 분 단위
-  actualTime?: number; // 분 단위
+  actualTime?: number; // 초 단위 (시간 추적 업데이트 시)
   complexity: number; // 1~5
   collaboration: number; // 1~5
   consequence: number; // 1~5
   project?: string; // Relation (Project ID)
   assignedTo?: string; // Relation (Team Member ID)
   weekTheme?: WeekTheme;
-  notes?: string;
+  notes?: string; // 마크다운
+  attachments?: TaskAttachment[]; // 첨부파일
   createdAt: string;
 }
 
@@ -130,6 +131,65 @@ export interface Project {
 
 export interface ProjectWithTasks extends Omit<Project, "taskIds"> {
   tasks: Task[];
+}
+
+// ------------------------------------------------------------
+// Task Template (작업 템플릿)
+// ------------------------------------------------------------
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  checked: boolean;
+}
+
+export interface TaskTemplate {
+  id: string;
+  title: string;
+  workArea: string;
+  estimatedTime: number; // 시간
+  priority: number; // 1-10
+  impact: number; // 1-10
+  checklist?: ChecklistItem[];
+  description?: string;
+  createdAt: string;
+}
+
+export interface TaskTemplateInput {
+  title: string;
+  workArea: string;
+  estimatedTime: number;
+  priority: number;
+  impact: number;
+  checklist?: ChecklistItem[];
+  description?: string;
+}
+
+// ------------------------------------------------------------
+// Task Attachment (작업 첨부파일)
+// ------------------------------------------------------------
+
+export interface TaskAttachment {
+  url: string;
+  name: string;
+  size: number; // bytes
+  uploadedAt: string; // ISO 8601
+}
+
+// ------------------------------------------------------------
+// Filter Options (검색/필터)
+// ------------------------------------------------------------
+
+export interface FilterOptions {
+  workArea?: string;
+  status?: TaskStatus;
+  priorityGrade?: "A" | "B" | "C" | "D";
+  assignee?: string;
+  dateRange?: {
+    start: string;
+    end: string;
+  };
+  search?: string;
 }
 
 // ------------------------------------------------------------

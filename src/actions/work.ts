@@ -17,7 +17,10 @@ import type {
   TeamMemberInput,
   TeamMemberUpdate,
   WeeklyReviewInput,
+  TaskTemplateInput,
+  TaskAttachment,
 } from "@/types/work";
+import { getTaskById } from "@/lib/work";
 
 // ------------------------------------------------------------
 // Notion 클라이언트 초기화
@@ -836,6 +839,468 @@ export async function createWeeklyReviewAction(input: {
       success: false,
       error:
         error instanceof Error ? error.message : "주간 리뷰 생성에 실패했습니다.",
+    };
+  }
+}
+
+// ------------------------------------------------------------
+// 작업 템플릿 생성/삭제
+// ------------------------------------------------------------
+
+/**
+ * 작업 템플릿 생성
+ */
+export async function createTaskTemplateAction(
+  input: TaskTemplateInput,
+): Promise<{ success: boolean; error?: string; templateId?: string }> {
+  try {
+    const databaseId = process.env.NOTION_DB_TASK_TEMPLATES;
+    if (!databaseId) {
+      return {
+        success: false,
+        error: "NOTION_DB_TASK_TEMPLATES 환경 변수가 설정되지 않았습니다.",
+      };
+    }
+
+    const client = getNotionClient();
+
+    // properties 객체 구성
+    const properties: any = {
+      title: {
+        title: [
+          {
+            text: {
+              content: input.title,
+            },
+          },
+        ],
+      },
+      workArea: {
+        select: {
+          name: input.workArea,
+        },
+      },
+      estimatedTime: {
+        number: input.estimatedTime,
+      },
+      priority: {
+        number: input.priority,
+      },
+      impact: {
+        number: input.impact,
+      },
+    };
+
+    // 선택적 필드
+    if (input.checklist && input.checklist.length > 0) {
+      properties.checklist = {
+        rich_text: [
+          {
+            text: {
+              content: JSON.stringify(input.checklist),
+            },
+          },
+        ],
+      };
+    }
+
+    if (input.description) {
+      properties.description = {
+        rich_text: [
+          {
+            text: {
+              content: input.description,
+            },
+          },
+        ],
+      };
+    }
+
+    // Notion Pages API 호출
+    const response = await client.pages.create({
+      parent: { database_id: databaseId },
+      properties,
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/templates");
+
+    return {
+      success: true,
+      templateId: response.id,
+    };
+  } catch (error) {
+    console.error("[Work Actions] createTaskTemplateAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "템플릿 생성에 실패했습니다.",
+    };
+  }
+}
+
+/**
+ * 작업 템플릿 삭제 (archive)
+ */
+export async function deleteTaskTemplateAction(
+  id: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = getNotionClient();
+
+    // Notion Pages API - archive
+    await client.pages.update({
+      page_id: id,
+      archived: true,
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/templates");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("[Work Actions] deleteTaskTemplateAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "템플릿 삭제에 실패했습니다.",
+    };
+  }
+}
+
+/**
+ * 템플릿에서 작업 생성
+ */
+export async function createTaskFromTemplateAction(
+  templateId: string,
+): Promise<{ success: boolean; error?: string; taskId?: string }> {
+  try {
+    const databaseId = process.env.NOTION_DB_TASKS;
+    if (!databaseId) {
+      return {
+        success: false,
+        error: "NOTION_DB_TASKS 환경 변수가 설정되지 않았습니다.",
+      };
+    }
+
+    const client = getNotionClient();
+
+    // 템플릿 조회
+    const template = await client.pages.retrieve({ page_id: templateId });
+    if (!("properties" in template)) {
+      return {
+        success: false,
+        error: "템플릿을 찾을 수 없습니다.",
+      };
+    }
+
+    const templatePage = template as any;
+
+    // 템플릿 데이터 추출
+    const title = templatePage.properties.title?.title[0]?.plain_text ?? "새 작업";
+    const workArea = templatePage.properties.workArea?.select?.name ?? "기타 업무";
+    const estimatedTime = templatePage.properties.estimatedTime?.number ?? 0;
+    const priority = templatePage.properties.priority?.number ?? 3;
+    const impact = templatePage.properties.impact?.number ?? 3;
+    const checklistStr = templatePage.properties.checklist?.rich_text[0]?.plain_text;
+    const description = templatePage.properties.description?.rich_text[0]?.plain_text;
+
+    // 마감일 계산 (오늘 + 예상시간)
+    const today = new Date();
+    const dueDate = new Date(today);
+    dueDate.setDate(today.getDate() + Math.ceil(estimatedTime / 8)); // 하루 8시간 기준
+    const dueDateStr = dueDate.toISOString().split("T")[0];
+
+    const weekTheme = getWeekThemeFromDate(dueDateStr);
+
+    // 새 작업 생성
+    const properties: any = {
+      title: {
+        title: [
+          {
+            text: {
+              content: title,
+            },
+          },
+        ],
+      },
+      status: {
+        select: {
+          name: "진행 전",
+        },
+      },
+      workArea: {
+        select: {
+          name: workArea,
+        },
+      },
+      priority: {
+        select: {
+          name: "보통",
+        },
+      },
+      dueDate: {
+        date: {
+          start: dueDateStr,
+        },
+      },
+      estimatedTime: {
+        number: estimatedTime * 60, // 시간 → 분
+      },
+      complexity: {
+        number: priority,
+      },
+      collaboration: {
+        number: 2,
+      },
+      consequence: {
+        number: impact,
+      },
+      weekTheme: {
+        select: {
+          name: weekTheme,
+        },
+      },
+    };
+
+    // 체크리스트 복사 (notes에 저장)
+    if (checklistStr || description) {
+      let notesContent = "";
+      if (description) {
+        notesContent += description + "\n\n";
+      }
+      if (checklistStr) {
+        try {
+          const checklist = JSON.parse(checklistStr);
+          notesContent += "## 체크리스트\n";
+          checklist.forEach((item: any) => {
+            notesContent += `- [ ] ${item.text}\n`;
+          });
+        } catch {
+          // JSON 파싱 실패 시 무시
+        }
+      }
+
+      if (notesContent) {
+        properties.notes = {
+          rich_text: [
+            {
+              text: {
+                content: notesContent.trim(),
+              },
+            },
+          ],
+        };
+      }
+    }
+
+    // Notion Pages API 호출
+    const response = await client.pages.create({
+      parent: { database_id: databaseId },
+      properties,
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/tasks");
+    revalidatePath("/work/daily");
+
+    return {
+      success: true,
+      taskId: response.id,
+    };
+  } catch (error) {
+    console.error("[Work Actions] createTaskFromTemplateAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "작업 생성에 실패했습니다.",
+    };
+  }
+}
+
+// ------------------------------------------------------------
+// 시간 추적
+// ------------------------------------------------------------
+
+/**
+ * 작업 시간 추적 업데이트
+ * @param taskId 작업 ID
+ * @param additionalSeconds 추가 소요 시간 (초)
+ */
+export async function updateTaskTimeTrackingAction(
+  taskId: string,
+  additionalSeconds: number,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = getNotionClient();
+
+    // 기존 actualTime 조회
+    const task = await getTaskById(taskId);
+    const currentSeconds = task?.actualTime ?? 0;
+    const newSeconds = currentSeconds + additionalSeconds;
+
+    // actualTime 업데이트
+    await client.pages.update({
+      page_id: taskId,
+      properties: {
+        actualTime: {
+          number: newSeconds,
+        },
+      },
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/tasks");
+    revalidatePath("/work/daily");
+    revalidatePath("/work/dashboard");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("[Work Actions] updateTaskTimeTrackingAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "시간 추적 업데이트에 실패했습니다.",
+    };
+  }
+}
+
+// ------------------------------------------------------------
+// 노트 및 첨부파일
+// ------------------------------------------------------------
+
+/**
+ * 작업 노트 업데이트
+ */
+export async function updateTaskNotesAction(
+  taskId: string,
+  notes: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = getNotionClient();
+
+    await client.pages.update({
+      page_id: taskId,
+      properties: {
+        notes: {
+          rich_text: [
+            {
+              text: {
+                content: notes.slice(0, 2000), // Notion rich_text 제한
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/tasks");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("[Work Actions] updateTaskNotesAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "노트 업데이트에 실패했습니다.",
+    };
+  }
+}
+
+/**
+ * 작업 첨부파일 추가
+ */
+export async function addTaskAttachmentAction(
+  taskId: string,
+  attachment: TaskAttachment,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = getNotionClient();
+
+    // 기존 첨부파일 조회
+    const task = await getTaskById(taskId);
+    const currentAttachments = task?.attachments ?? [];
+
+    // 새 첨부파일 추가
+    const newAttachments = [...currentAttachments, attachment];
+
+    // attachments 업데이트
+    await client.pages.update({
+      page_id: taskId,
+      properties: {
+        attachments: {
+          rich_text: [
+            {
+              text: {
+                content: JSON.stringify(newAttachments).slice(0, 2000),
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/tasks");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("[Work Actions] addTaskAttachmentAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "첨부파일 추가에 실패했습니다.",
+    };
+  }
+}
+
+/**
+ * 작업 첨부파일 제거
+ */
+export async function removeTaskAttachmentAction(
+  taskId: string,
+  attachmentUrl: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = getNotionClient();
+
+    // 기존 첨부파일 조회
+    const task = await getTaskById(taskId);
+    const currentAttachments = task?.attachments ?? [];
+
+    // 첨부파일 제거
+    const newAttachments = currentAttachments.filter((a) => a.url !== attachmentUrl);
+
+    // attachments 업데이트
+    await client.pages.update({
+      page_id: taskId,
+      properties: {
+        attachments: {
+          rich_text: [
+            {
+              text: {
+                content: JSON.stringify(newAttachments).slice(0, 2000),
+              },
+            },
+          ],
+        },
+      },
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/tasks");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("[Work Actions] removeTaskAttachmentAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "첨부파일 제거에 실패했습니다.",
     };
   }
 }

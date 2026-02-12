@@ -16,6 +16,9 @@ import type {
   Project,
   ProjectWithTasks,
   WorkArea,
+  TaskTemplate,
+  ChecklistItem,
+  TaskAttachment,
 } from "@/types/work";
 
 // ------------------------------------------------------------
@@ -165,25 +168,39 @@ export const getTasks = unstable_cache(
 
       return response.results
         .filter((page: any): page is PageObjectResponse => "properties" in page)
-        .map((page: PageObjectResponse) => ({
-          id: page.id,
-          title: getTitle(page),
-          status: getProp(page, "status") as Task["status"],
-          workArea: getProp(page, "workArea") as string,
-          priority: getProp(page, "priority") as Task["priority"],
-          priorityScore: getProp(page, "priorityScore") as number,
-          dueDate: getProp(page, "dueDate") as string,
-          estimatedTime: getProp(page, "estimatedTime") as number,
-          actualTime: getProp(page, "actualTime") as number,
-          complexity: getProp(page, "complexity") as number,
-          collaboration: getProp(page, "collaboration") as number,
-          consequence: getProp(page, "consequence") as number,
-          project: (getProp(page, "project") as string[])[0],
-          assignedTo: (getProp(page, "assignedTo") as string[])[0],
-          weekTheme: getProp(page, "weekTheme") as Task["weekTheme"],
-          notes: getProp(page, "notes") as string,
-          createdAt: page.created_time,
-        }));
+        .map((page: PageObjectResponse) => {
+          // attachments JSON 파싱
+          const attachmentsStr = getProp(page, "attachments") as string;
+          let attachments: TaskAttachment[] | undefined;
+          if (attachmentsStr) {
+            try {
+              attachments = JSON.parse(attachmentsStr);
+            } catch {
+              attachments = undefined;
+            }
+          }
+
+          return {
+            id: page.id,
+            title: getTitle(page),
+            status: getProp(page, "status") as Task["status"],
+            workArea: getProp(page, "workArea") as string,
+            priority: getProp(page, "priority") as Task["priority"],
+            priorityScore: getProp(page, "priorityScore") as number,
+            dueDate: getProp(page, "dueDate") as string,
+            estimatedTime: getProp(page, "estimatedTime") as number,
+            actualTime: getProp(page, "actualTime") as number,
+            complexity: getProp(page, "complexity") as number,
+            collaboration: getProp(page, "collaboration") as number,
+            consequence: getProp(page, "consequence") as number,
+            project: (getProp(page, "project") as string[])[0],
+            assignedTo: (getProp(page, "assignedTo") as string[])[0],
+            weekTheme: getProp(page, "weekTheme") as Task["weekTheme"],
+            notes: getProp(page, "notes") as string,
+            attachments,
+            createdAt: page.created_time,
+          };
+        });
     } catch (error) {
       console.error("[Notion Work] 작업 목록 조회 실패:", error);
       return [];
@@ -204,6 +221,17 @@ export async function getTaskById(id: string): Promise<Task | null> {
 
     const pageObj = page as PageObjectResponse;
 
+    // attachments JSON 파싱
+    const attachmentsStr = getProp(pageObj, "attachments") as string;
+    let attachments: TaskAttachment[] | undefined;
+    if (attachmentsStr) {
+      try {
+        attachments = JSON.parse(attachmentsStr);
+      } catch {
+        attachments = undefined;
+      }
+    }
+
     return {
       id: pageObj.id,
       title: getTitle(pageObj),
@@ -221,6 +249,7 @@ export async function getTaskById(id: string): Promise<Task | null> {
       assignedTo: (getProp(pageObj, "assignedTo") as string[])[0],
       weekTheme: getProp(pageObj, "weekTheme") as Task["weekTheme"],
       notes: getProp(pageObj, "notes") as string,
+      attachments,
       createdAt: pageObj.created_time,
     };
   } catch (error) {
@@ -520,3 +549,66 @@ export async function getProjectById(id: string): Promise<ProjectWithTasks | nul
     return null;
   }
 }
+
+// ------------------------------------------------------------
+// Task Templates (작업 템플릿)
+// ------------------------------------------------------------
+
+/**
+ * 작업 템플릿 목록을 조회한다.
+ * ISR: 1시간(3600초) 캐싱
+ */
+export const getTaskTemplates = unstable_cache(
+  async (): Promise<TaskTemplate[]> => {
+    const databaseId = process.env.NOTION_DB_TASK_TEMPLATES;
+    if (!databaseId) {
+      console.warn("[Notion Work] NOTION_DB_TASK_TEMPLATES 환경 변수가 없습니다.");
+      return [];
+    }
+
+    try {
+      const client = getNotionClient();
+      const response = await client.databases.query({
+        database_id: databaseId,
+        sorts: [
+          {
+            property: "createdAt",
+            direction: "descending",
+          },
+        ],
+      });
+
+      return response.results
+        .filter((page: any): page is PageObjectResponse => "properties" in page)
+        .map((page: PageObjectResponse) => {
+          // checklist JSON 파싱
+          const checklistStr = getProp(page, "checklist") as string;
+          let checklist: ChecklistItem[] | undefined;
+          if (checklistStr) {
+            try {
+              checklist = JSON.parse(checklistStr);
+            } catch {
+              checklist = undefined;
+            }
+          }
+
+          return {
+            id: page.id,
+            title: getTitle(page),
+            workArea: getProp(page, "workArea") as string,
+            estimatedTime: getProp(page, "estimatedTime") as number,
+            priority: getProp(page, "priority") as number,
+            impact: getProp(page, "impact") as number,
+            checklist,
+            description: getProp(page, "description") as string,
+            createdAt: page.created_time,
+          };
+        });
+    } catch (error) {
+      console.error("[Notion Work] 작업 템플릿 목록 조회 실패:", error);
+      return [];
+    }
+  },
+  ["task-templates-list"],
+  { revalidate: 3600 },
+);
