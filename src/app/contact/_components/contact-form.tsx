@@ -11,7 +11,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload, X, FileIcon } from "lucide-react";
 import type { InquiryCategory } from "@/types/inquiry";
 import { SuccessMessage } from "./success-message";
 
@@ -53,6 +53,8 @@ export function ContactForm() {
   const [submittedData, setSubmittedData] = useState<ContactFormData | null>(
     null,
   );
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const {
     register,
@@ -71,12 +73,75 @@ export function ContactForm() {
     },
   });
 
+  // 파일 선택 핸들러
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 파일 크기 제한 (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error("파일 크기는 5MB 이하여야 합니다.");
+      return;
+    }
+
+    // 파일 타입 검증
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("이미지 파일(jpg, png, gif, webp) 또는 PDF만 업로드 가능합니다.");
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  // 파일 제거 핸들러
+  const handleFileRemove = () => {
+    setSelectedFile(null);
+  };
+
   const onSubmit = async (data: ContactFormData) => {
     try {
+      let attachmentData = null;
+
+      // 1. 파일이 선택된 경우 먼저 업로드
+      if (selectedFile) {
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error("파일 업로드에 실패했습니다.");
+        }
+
+        const uploadResult = await uploadResponse.json();
+        attachmentData = {
+          attachmentUrl: uploadResult.url,
+          attachmentName: selectedFile.name,
+          attachmentSize: selectedFile.size,
+        };
+        setIsUploading(false);
+      }
+
+      // 2. 문의 데이터 전송 (첨부파일 포함)
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          ...attachmentData,
+        }),
       });
 
       if (!response.ok) {
@@ -86,11 +151,17 @@ export function ContactForm() {
       // 성공 처리
       setSubmittedData(data);
       setIsSubmitted(true);
+      setSelectedFile(null);
       reset();
       toast.success("문의가 접수되었습니다.");
     } catch (error) {
       console.error("문의 제출 에러:", error);
-      toast.error("문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.");
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      );
+      setIsUploading(false);
     }
   };
 
@@ -215,13 +286,70 @@ export function ContactForm() {
         )}
       </div>
 
+      {/* 파일 첨부 */}
+      <div>
+        <label htmlFor="file" className="mb-2 block text-sm font-medium">
+          파일 첨부 (선택)
+        </label>
+        <div className="space-y-2">
+          {/* 파일 선택 버튼 */}
+          {!selectedFile && (
+            <label
+              htmlFor="file"
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-gray-400 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:bg-gray-700"
+            >
+              <Upload className="h-5 w-5" />
+              <span>파일 선택 (이미지 또는 PDF, 최대 5MB)</span>
+              <input
+                id="file"
+                type="file"
+                accept="image/*,.pdf"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+          )}
+
+          {/* 선택된 파일 미리보기 */}
+          {selectedFile && (
+            <div className="flex items-center gap-3 rounded-md border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+              <FileIcon className="h-8 w-8 flex-shrink-0 text-blue-500" />
+              <div className="flex-1 overflow-hidden">
+                <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                  {selectedFile.name}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {(selectedFile.size / 1024).toFixed(1)} KB
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleFileRemove}
+                className="flex-shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                aria-label="파일 제거"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          JPG, PNG, GIF, WebP, PDF 파일만 업로드 가능합니다.
+        </p>
+      </div>
+
       {/* 제출 버튼 */}
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || isUploading}
         className="w-full rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
       >
-        {isSubmitting ? (
+        {isUploading ? (
+          <span className="flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            파일 업로드 중...
+          </span>
+        ) : isSubmitting ? (
           <span className="flex items-center justify-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             접수 중...

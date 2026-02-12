@@ -13,6 +13,8 @@ import {
   Tag,
   AlertCircle,
   CheckCircle2,
+  Paperclip,
+  Download,
 } from "lucide-react";
 import { getInquiryById } from "@/lib/inquiry";
 import { getTemplates } from "@/lib/notion";
@@ -135,6 +137,32 @@ export default async function InquiryDetailPage({ params }: InquiryPageParams) {
                 </p>
               </div>
             </div>
+
+            {/* 첨부파일 */}
+            {inquiry.attachmentUrl && (
+              <div className="flex items-start gap-3">
+                <Paperclip className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    첨부파일
+                  </p>
+                  <a
+                    href={inquiry.attachmentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                  >
+                    <Download className="h-4 w-4" />
+                    {inquiry.attachmentName || "첨부파일 다운로드"}
+                    {inquiry.attachmentSize && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ({(inquiry.attachmentSize / 1024).toFixed(1)} KB)
+                      </span>
+                    )}
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 오른쪽: 문의 내용 */}

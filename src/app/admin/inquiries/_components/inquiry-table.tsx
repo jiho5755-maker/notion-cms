@@ -7,7 +7,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Paperclip } from "lucide-react";
 import type {
   Inquiry,
   InquiryStatus,
@@ -131,6 +131,12 @@ export function InquiryTable({ inquiries }: InquiryTableProps) {
                   >
                     생성일
                   </th>
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400"
+                  >
+                    첨부
+                  </th>
                   <th scope="col" className="relative px-6 py-3">
                     <span className="sr-only">상세</span>
                   </th>
@@ -170,6 +176,16 @@ export function InquiryTable({ inquiries }: InquiryTableProps) {
                     {/* 생성일 */}
                     <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                       {new Date(inquiry.createdTime).toLocaleDateString("ko-KR")}
+                    </td>
+
+                    {/* 첨부파일 */}
+                    <td className="px-6 py-4 text-center">
+                      {inquiry.attachmentUrl && (
+                        <Paperclip
+                          className="h-4 w-4 inline-block text-blue-600 dark:text-blue-400"
+                          aria-label="첨부파일 있음"
+                        />
+                      )}
                     </td>
 
                     {/* 상세 링크 */}
