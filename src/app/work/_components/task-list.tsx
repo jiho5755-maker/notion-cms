@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -191,7 +192,11 @@ function TaskCard({
       {/* 헤더 */}
       <div className="mb-3 flex items-start justify-between">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold">{task.title}</h3>
+          <Link href={`/work/tasks/${task.id}`}>
+            <h3 className="cursor-pointer text-lg font-semibold transition-colors hover:text-blue-600">
+              {task.title}
+            </h3>
+          </Link>
           <p className="mt-1 text-sm text-gray-600">
             {task.workArea} · 마감일: {new Date(task.dueDate).toLocaleDateString("ko-KR")}
           </p>

@@ -18,6 +18,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -91,6 +92,9 @@ export function TemplateForm({ workAreas }: TemplateFormProps) {
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>새 템플릿 추가</DialogTitle>
+          <DialogDescription>
+            자주 사용하는 작업 패턴을 템플릿으로 저장하세요
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           {/* 템플릿명 */}

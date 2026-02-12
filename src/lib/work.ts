@@ -572,7 +572,7 @@ export const getTaskTemplates = unstable_cache(
         database_id: databaseId,
         sorts: [
           {
-            property: "createdAt",
+            timestamp: "created_time",
             direction: "descending",
           },
         ],
