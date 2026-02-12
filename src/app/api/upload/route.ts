@@ -33,7 +33,7 @@ const ALLOWED_EXTENSIONS = [
   ".webm",
 ];
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB (비디오 고려)
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB (업계 표준)
 
 // ------------------------------------------------------------
 // 공개 API: 파일 업로드

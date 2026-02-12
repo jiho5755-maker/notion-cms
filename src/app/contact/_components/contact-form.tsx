@@ -53,9 +53,14 @@ export function ContactForm() {
   const [submittedData, setSubmittedData] = useState<ContactFormData | null>(
     null,
   );
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  // 파일 제한값 (업계 표준 기반)
+  const MAX_FILES = 5;
+  const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+  const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50MB
 
   const {
     register,
@@ -75,15 +80,7 @@ export function ContactForm() {
   });
 
   // 파일 검증 공통 함수
-  const validateFile = (file: File): boolean => {
-    // 파일 크기 제한 (50MB)
-    const maxSize = 50 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error("파일 크기는 50MB 이하여야 합니다.");
-      return false;
-    }
-
-    // 파일 타입 검증
+  const validateFiles = (newFiles: File[]): File[] => {
     const allowedTypes = [
       "image/jpeg",
       "image/png",
@@ -95,24 +92,64 @@ export function ContactForm() {
       "video/x-msvideo",
       "video/webm",
     ];
-    if (!allowedTypes.includes(file.type)) {
-      toast.error(
-        "이미지, PDF, 비디오 파일만 업로드 가능합니다. (jpg, png, gif, webp, pdf, mp4, mov, avi, webm)",
-      );
-      return false;
+
+    const validFiles: File[] = [];
+
+    for (const file of newFiles) {
+      // 개수 제한 확인
+      if (selectedFiles.length + validFiles.length >= MAX_FILES) {
+        toast.error(`최대 ${MAX_FILES}개까지 첨부할 수 있습니다.`);
+        break;
+      }
+
+      // 파일 타입 검증
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(
+          `${file.name}: 이미지, PDF, 비디오 파일만 가능합니다.`,
+        );
+        continue;
+      }
+
+      // 개별 파일 크기 제한
+      if (file.size > MAX_FILE_SIZE) {
+        toast.error(
+          `${file.name}: 파일 크기는 ${MAX_FILE_SIZE / 1024 / 1024}MB 이하여야 합니다.`,
+        );
+        continue;
+      }
+
+      validFiles.push(file);
     }
 
-    return true;
+    // 전체 파일 크기 제한
+    const currentTotalSize = selectedFiles.reduce(
+      (sum, f) => sum + f.size,
+      0,
+    );
+    const newTotalSize = validFiles.reduce((sum, f) => sum + f.size, 0);
+
+    if (currentTotalSize + newTotalSize > MAX_TOTAL_SIZE) {
+      toast.error(
+        `전체 파일 크기는 ${MAX_TOTAL_SIZE / 1024 / 1024}MB 이하여야 합니다.`,
+      );
+      return [];
+    }
+
+    return validFiles;
   };
 
   // 파일 선택 핸들러
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (validateFile(file)) {
-      setSelectedFile(file);
+    const validFiles = validateFiles(files);
+    if (validFiles.length > 0) {
+      setSelectedFiles([...selectedFiles, ...validFiles]);
     }
+
+    // input 초기화 (같은 파일 재선택 가능하게)
+    e.target.value = "";
   };
 
   // 드래그 앤 드롭 핸들러
@@ -138,48 +175,77 @@ export function ContactForm() {
     e.stopPropagation();
     setIsDragging(false);
 
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length === 0) return;
 
-    if (validateFile(file)) {
-      setSelectedFile(file);
+    const validFiles = validateFiles(files);
+    if (validFiles.length > 0) {
+      setSelectedFiles([...selectedFiles, ...validFiles]);
     }
   };
 
   // 파일 제거 핸들러
-  const handleFileRemove = () => {
-    setSelectedFile(null);
+  const handleFileRemove = (index: number) => {
+    setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
   };
 
   const onSubmit = async (data: ContactFormData) => {
     try {
-      let attachmentData = null;
+      const uploadedFiles: Array<{
+        url: string;
+        name: string;
+        size: number;
+      }> = [];
 
-      // 1. 파일이 선택된 경우 먼저 업로드
-      if (selectedFile) {
+      // 1. 선택된 파일들을 순차적으로 업로드
+      if (selectedFiles.length > 0) {
         setIsUploading(true);
-        const formData = new FormData();
-        formData.append("file", selectedFile);
 
-        const uploadResponse = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          const formData = new FormData();
+          formData.append("file", file);
 
-        if (!uploadResponse.ok) {
-          throw new Error("파일 업로드에 실패했습니다.");
+          const uploadResponse = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error(`${file.name} 업로드에 실패했습니다.`);
+          }
+
+          const uploadResult = await uploadResponse.json();
+          uploadedFiles.push({
+            url: uploadResult.url,
+            name: file.name,
+            size: file.size,
+          });
+
+          // 진행 상황 토스트 (선택사항)
+          if (selectedFiles.length > 1) {
+            toast.loading(
+              `파일 업로드 중... (${i + 1}/${selectedFiles.length})`,
+              { id: "upload-progress" },
+            );
+          }
         }
 
-        const uploadResult = await uploadResponse.json();
-        attachmentData = {
-          attachmentUrl: uploadResult.url,
-          attachmentName: selectedFile.name,
-          attachmentSize: selectedFile.size,
-        };
         setIsUploading(false);
+        toast.dismiss("upload-progress");
       }
 
       // 2. 문의 데이터 전송 (첨부파일 포함)
+      // 첫 번째 파일만 전송 (기존 스키마 호환)
+      const attachmentData =
+        uploadedFiles.length > 0
+          ? {
+              attachmentUrl: uploadedFiles[0].url,
+              attachmentName: uploadedFiles[0].name,
+              attachmentSize: uploadedFiles[0].size,
+            }
+          : null;
+
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -196,9 +262,13 @@ export function ContactForm() {
       // 성공 처리
       setSubmittedData(data);
       setIsSubmitted(true);
-      setSelectedFile(null);
+      setSelectedFiles([]);
       reset();
-      toast.success("문의가 접수되었습니다.");
+      toast.success(
+        uploadedFiles.length > 0
+          ? `문의가 접수되었습니다. (첨부파일 ${uploadedFiles.length}개)`
+          : "문의가 접수되었습니다.",
+      );
     } catch (error) {
       console.error("문의 제출 에러:", error);
       toast.error(
@@ -207,6 +277,7 @@ export function ContactForm() {
           : "문의 접수에 실패했습니다. 잠시 후 다시 시도해주세요.",
       );
       setIsUploading(false);
+      toast.dismiss("upload-progress");
     }
   };
 
@@ -338,7 +409,7 @@ export function ContactForm() {
         </label>
         <div className="space-y-2">
           {/* 드래그 앤 드롭 영역 */}
-          {!selectedFile && (
+          {selectedFiles.length < MAX_FILES && (
             <label
               htmlFor="file"
               onDragEnter={handleDragEnter}
@@ -351,54 +422,87 @@ export function ContactForm() {
                   : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500 dark:hover:bg-gray-700"
               }`}
             >
-              <Upload className={`h-5 w-5 ${isDragging ? "animate-bounce" : ""}`} />
-              <span className={isDragging ? "font-medium text-primary" : "text-gray-600 dark:text-gray-400"}>
+              <Upload
+                className={`h-5 w-5 ${isDragging ? "animate-bounce" : ""}`}
+              />
+              <span
+                className={
+                  isDragging
+                    ? "font-medium text-primary"
+                    : "text-gray-600 dark:text-gray-400"
+                }
+              >
                 {isDragging
                   ? "여기에 파일을 놓으세요"
-                  : "파일을 드래그하거나 클릭하여 선택 (이미지, PDF, 비디오 / 최대 50MB)"}
+                  : `파일을 드래그하거나 클릭하여 선택 (${selectedFiles.length}/${MAX_FILES}개)`}
               </span>
               <input
                 id="file"
                 type="file"
                 accept="image/*,.pdf,video/*"
+                multiple
                 onChange={handleFileChange}
                 className="hidden"
               />
             </label>
           )}
 
-          {/* 선택된 파일 미리보기 */}
-          {selectedFile && (
-            <div className="flex items-center gap-3 rounded-md border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-              {selectedFile.type.startsWith("video/") ? (
-                <Video className="h-8 w-8 flex-shrink-0 text-purple-500" />
-              ) : (
-                <FileIcon className="h-8 w-8 flex-shrink-0 text-blue-500" />
-              )}
-              <div className="flex-1 overflow-hidden">
-                <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                  {selectedFile.name}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {selectedFile.size > 1024 * 1024
-                    ? `${(selectedFile.size / 1024 / 1024).toFixed(1)} MB`
-                    : `${(selectedFile.size / 1024).toFixed(1)} KB`}
-                  {selectedFile.type.startsWith("video/") && " • 비디오"}
-                </p>
+          {/* 선택된 파일 목록 */}
+          {selectedFiles.length > 0 && (
+            <div className="space-y-2">
+              {selectedFiles.map((file, index) => (
+                <div
+                  key={`${file.name}-${index}`}
+                  className="flex items-center gap-3 rounded-md border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
+                >
+                  {file.type.startsWith("video/") ? (
+                    <Video className="h-8 w-8 flex-shrink-0 text-purple-500" />
+                  ) : (
+                    <FileIcon className="h-8 w-8 flex-shrink-0 text-blue-500" />
+                  )}
+                  <div className="flex-1 overflow-hidden">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                      {file.name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {file.size > 1024 * 1024
+                        ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
+                        : `${(file.size / 1024).toFixed(1)} KB`}
+                      {file.type.startsWith("video/") && " • 비디오"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleFileRemove(index)}
+                    className="flex-shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                    aria-label="파일 제거"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              ))}
+
+              {/* 전체 용량 표시 */}
+              <div className="flex items-center justify-between rounded-md bg-blue-50 px-3 py-2 text-xs dark:bg-blue-900/20">
+                <span className="text-blue-700 dark:text-blue-300">
+                  전체 용량
+                </span>
+                <span className="font-medium text-blue-900 dark:text-blue-100">
+                  {(
+                    selectedFiles.reduce((sum, f) => sum + f.size, 0) /
+                    1024 /
+                    1024
+                  ).toFixed(1)}{" "}
+                  MB / {MAX_TOTAL_SIZE / 1024 / 1024} MB
+                </span>
               </div>
-              <button
-                type="button"
-                onClick={handleFileRemove}
-                className="flex-shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                aria-label="파일 제거"
-              >
-                <X className="h-5 w-5" />
-              </button>
             </div>
           )}
         </div>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          이미지 (JPG, PNG, GIF, WebP), PDF, 비디오 (MP4, MOV, AVI, WebM) 파일을 업로드할 수 있습니다.
+          최대 {MAX_FILES}개 파일, 개별 {MAX_FILE_SIZE / 1024 / 1024}MB, 전체{" "}
+          {MAX_TOTAL_SIZE / 1024 / 1024}MB까지 업로드 가능합니다. (이미지: JPG,
+          PNG, GIF, WebP / 문서: PDF / 비디오: MP4, MOV, AVI, WebM)
         </p>
       </div>
 
