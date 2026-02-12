@@ -197,6 +197,29 @@ export interface WeeklyReviewInput {
   weekEnd: string;
 }
 
+/**
+ * 협업자 생성 입력
+ */
+export interface TeamMemberInput {
+  title: string;
+  role: TeamRole;
+  email?: string;
+  phone?: string;
+  notes?: string;
+}
+
+/**
+ * 협업자 수정
+ */
+export interface TeamMemberUpdate {
+  id: string;
+  title?: string;
+  role?: TeamRole;
+  email?: string;
+  phone?: string;
+  notes?: string;
+}
+
 // ------------------------------------------------------------
 // 통계 및 대시보드
 // ------------------------------------------------------------

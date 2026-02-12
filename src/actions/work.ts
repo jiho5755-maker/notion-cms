@@ -14,6 +14,9 @@ import type {
   TaskStatus,
   DailyPlanInput,
   WeekTheme,
+  TeamMemberInput,
+  TeamMemberUpdate,
+  WeeklyReviewInput,
 } from "@/types/work";
 
 // ------------------------------------------------------------
@@ -508,6 +511,331 @@ export async function createDailyPlanAction(
       success: false,
       error:
         error instanceof Error ? error.message : "일일 계획 생성에 실패했습니다.",
+    };
+  }
+}
+// ------------------------------------------------------------
+// 협업자 생성/수정/삭제
+// ------------------------------------------------------------
+
+/**
+ * 협업자 생성
+ */
+export async function createTeamMemberAction(
+  input: TeamMemberInput,
+): Promise<{ success: boolean; error?: string; memberId?: string }> {
+  try {
+    const databaseId = process.env.NOTION_DB_TEAM;
+    if (!databaseId) {
+      return {
+        success: false,
+        error: "NOTION_DB_TEAM 환경 변수가 설정되지 않았습니다.",
+      };
+    }
+
+    const client = getNotionClient();
+
+    // properties 객체 구성
+    const properties: any = {
+      title: {
+        title: [
+          {
+            text: {
+              content: input.title,
+            },
+          },
+        ],
+      },
+      role: {
+        select: {
+          name: input.role,
+        },
+      },
+    };
+
+    // 선택적 필드
+    if (input.email) {
+      properties.email = {
+        email: input.email,
+      };
+    }
+
+    if (input.phone) {
+      properties.phone_number = {
+        phone_number: input.phone,
+      };
+    }
+
+    if (input.notes) {
+      properties.notes = {
+        rich_text: [
+          {
+            text: {
+              content: input.notes,
+            },
+          },
+        ],
+      };
+    }
+
+    // Notion Pages API 호출
+    const response = await client.pages.create({
+      parent: { database_id: databaseId },
+      properties,
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/team");
+
+    return {
+      success: true,
+      memberId: response.id,
+    };
+  } catch (error) {
+    console.error("[Work Actions] createTeamMemberAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "협업자 생성에 실패했습니다.",
+    };
+  }
+}
+
+/**
+ * 협업자 수정
+ */
+export async function updateTeamMemberAction(
+  update: TeamMemberUpdate,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = getNotionClient();
+
+    // properties 객체 구성 (변경된 필드만)
+    const properties: any = {};
+
+    if (update.title !== undefined) {
+      properties.title = {
+        title: [
+          {
+            text: {
+              content: update.title,
+            },
+          },
+        ],
+      };
+    }
+
+    if (update.role !== undefined) {
+      properties.role = {
+        select: {
+          name: update.role,
+        },
+      };
+    }
+
+    if (update.email !== undefined) {
+      properties.email = {
+        email: update.email || "",
+      };
+    }
+
+    if (update.phone !== undefined) {
+      properties.phone_number = {
+        phone_number: update.phone || "",
+      };
+    }
+
+    if (update.notes !== undefined) {
+      properties.notes = {
+        rich_text: [
+          {
+            text: {
+              content: update.notes,
+            },
+          },
+        ],
+      };
+    }
+
+    // Notion Pages API 호출
+    await client.pages.update({
+      page_id: update.id,
+      properties,
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/team");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("[Work Actions] updateTeamMemberAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "협업자 수정에 실패했습니다.",
+    };
+  }
+}
+
+/**
+ * 협업자 삭제 (실제로는 archive)
+ */
+export async function deleteTeamMemberAction(
+  id: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const client = getNotionClient();
+
+    // Notion Pages API - archive
+    await client.pages.update({
+      page_id: id,
+      archived: true,
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/team");
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    console.error("[Work Actions] deleteTeamMemberAction 에러:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "협업자 삭제에 실패했습니다.",
+    };
+  }
+}
+
+// ------------------------------------------------------------
+// 주간 리뷰 생성
+// ------------------------------------------------------------
+
+/**
+ * 주간 리뷰 생성 (수동 생성용)
+ * - 통계는 직접 계산하여 전달받음
+ */
+export async function createWeeklyReviewAction(input: {
+  weekStart: string;
+  weekEnd: string;
+  totalTasks: number;
+  completedTasks: number;
+  completionRate: number;
+  totalTime: number;
+  workAreaBreakdown?: string;
+  topAchievements?: string;
+  nextWeekGoals?: string;
+}): Promise<{ success: boolean; error?: string; reviewId?: string }> {
+  try {
+    const databaseId = process.env.NOTION_DB_WEEKLY_REVIEWS;
+    if (!databaseId) {
+      return {
+        success: false,
+        error: "NOTION_DB_WEEKLY_REVIEWS 환경 변수가 설정되지 않았습니다.",
+      };
+    }
+
+    const client = getNotionClient();
+
+    // 주 번호 계산
+    const weekStart = new Date(input.weekStart);
+    const year = weekStart.getFullYear();
+    const weekNum = Math.ceil(
+      (weekStart.getTime() - new Date(year, 0, 1).getTime()) /
+        (7 * 24 * 60 * 60 * 1000),
+    );
+
+    // properties 객체 구성
+    const properties: any = {
+      title: {
+        title: [
+          {
+            text: {
+              content: `${year}-W${String(weekNum).padStart(2, "0")} 주간 리뷰`,
+            },
+          },
+        ],
+      },
+      weekStart: {
+        date: {
+          start: input.weekStart,
+        },
+      },
+      weekEnd: {
+        date: {
+          start: input.weekEnd,
+        },
+      },
+      totalTasks: {
+        number: input.totalTasks,
+      },
+      completedTasks: {
+        number: input.completedTasks,
+      },
+      completionRate: {
+        number: input.completionRate,
+      },
+      totalTime: {
+        number: input.totalTime,
+      },
+    };
+
+    // 선택적 필드
+    if (input.workAreaBreakdown) {
+      properties.workAreaBreakdown = {
+        rich_text: [
+          {
+            text: {
+              content: input.workAreaBreakdown,
+            },
+          },
+        ],
+      };
+    }
+
+    if (input.topAchievements) {
+      properties.topAchievements = {
+        rich_text: [
+          {
+            text: {
+              content: input.topAchievements,
+            },
+          },
+        ],
+      };
+    }
+
+    if (input.nextWeekGoals) {
+      properties.nextWeekGoals = {
+        rich_text: [
+          {
+            text: {
+              content: input.nextWeekGoals,
+            },
+          },
+        ],
+      };
+    }
+
+    // Notion Pages API 호출
+    const response = await client.pages.create({
+      parent: { database_id: databaseId },
+      properties,
+    });
+
+    // ISR 캐시 무효화
+    revalidatePath("/work/weekly");
+
+    return {
+      success: true,
+      reviewId: response.id,
+    };
+  } catch (error) {
+    console.error("[Work Actions] createWeeklyReviewAction 에러:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "주간 리뷰 생성에 실패했습니다.",
     };
   }
 }
