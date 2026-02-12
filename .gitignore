@@ -54,3 +54,4 @@ next-env.d.ts
 !public/**/*.png
 !public/**/*.jpeg
 .env*.local
+test-results/
