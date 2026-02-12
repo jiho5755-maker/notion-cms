@@ -5,6 +5,7 @@
 
 import { Resend } from "resend";
 import type { CustomerInfo } from "@/types/quotation";
+import { COMPANY_INFO } from "./constants";
 
 // ------------------------------------------------------------
 // Resend 클라이언트 초기화
@@ -23,20 +24,6 @@ function getResendClient(): Resend {
 // ------------------------------------------------------------
 
 /**
- * 사업자 정보 가져오기
- */
-function getCompanyInfo() {
-  return {
-    name: process.env.COMPANY_NAME || "프레스코21",
-    registrationId: process.env.COMPANY_REGISTRATION_ID || "215-05-52221",
-    type: process.env.COMPANY_TYPE || "개인사업자",
-    address: process.env.COMPANY_ADDRESS || "",
-    phone: process.env.COMPANY_PHONE || "",
-    email: process.env.COMPANY_EMAIL || "",
-  };
-}
-
-/**
  * 고객에게 견적서 PDF를 이메일로 발송한다.
  * - 에러 발생 시 예외를 throw (호출하는 쪽에서 처리)
  */
@@ -46,7 +33,7 @@ export async function sendQuotationEmail(
   quotationNumber: string,
 ): Promise<void> {
   const resend = getResendClient();
-  const company = getCompanyInfo();
+  const company = COMPANY_INFO;
 
   try {
     // Blob을 Buffer로 변환
@@ -226,7 +213,7 @@ export async function sendQuotationEmail(
       ${company.address ? `<p><strong>주소:</strong> ${company.address}</p>` : ""}
       ${company.phone ? `<p><strong>전화:</strong> ${company.phone}</p>` : ""}
       ${company.email ? `<p><strong>이메일:</strong> ${company.email}</p>` : ""}
-      <p class="tagline">PRESSCO 21 - 꽃으로 노는 모든 방법</p>
+      <p class="tagline">PRESSCO 21 - ${company.tagline}</p>
     </div>
   </div>
 </body>
@@ -257,7 +244,7 @@ ${customer.name}님께
 상호명: ${company.name}
 사업자번호: ${company.registrationId} (${company.type})
 ${company.address ? `주소: ${company.address}\n` : ""}${company.phone ? `전화: ${company.phone}\n` : ""}${company.email ? `이메일: ${company.email}\n` : ""}${process.env.NEXT_PUBLIC_SITE_URL ? `웹사이트: ${process.env.NEXT_PUBLIC_SITE_URL}\n` : ""}
-PRESSCO 21 - 꽃으로 노는 모든 방법
+PRESSCO 21 - ${company.tagline}
       `.trim(),
       attachments: [
         {
