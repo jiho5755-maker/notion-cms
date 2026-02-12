@@ -170,13 +170,14 @@ const styles = StyleSheet.create({
 
 /** PDF 문서 컴포넌트 */
 const QuotationDocument = ({ quotation }: { quotation: Quotation }) => {
+  // PDF 생성은 클라이언트 사이드에서 실행되므로 NEXT_PUBLIC_ 접두사 필요
   const company = {
-    name: process.env.COMPANY_NAME || "프레스코21",
-    registrationId: process.env.COMPANY_REGISTRATION_ID || "215-05-52221",
-    type: process.env.COMPANY_TYPE || "개인사업자",
-    address: process.env.COMPANY_ADDRESS || "",
-    phone: process.env.COMPANY_PHONE || "",
-    email: process.env.COMPANY_EMAIL || "",
+    name: process.env.NEXT_PUBLIC_COMPANY_NAME || "프레스코21",
+    registrationId: process.env.NEXT_PUBLIC_COMPANY_REGISTRATION_ID || "215-05-52221",
+    type: process.env.NEXT_PUBLIC_COMPANY_TYPE || "개인사업자",
+    address: process.env.NEXT_PUBLIC_COMPANY_ADDRESS || "",
+    phone: process.env.NEXT_PUBLIC_COMPANY_PHONE || "",
+    email: process.env.NEXT_PUBLIC_COMPANY_EMAIL || "",
   };
 
   return (
