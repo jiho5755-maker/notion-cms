@@ -54,6 +54,10 @@ function getProp(
       return prop.date?.start ?? null;
     case "created_time":
       return prop.created_time ?? "";
+    case "url":
+      return prop.url ?? null;
+    case "number":
+      return prop.number ?? null;
     default:
       return "";
   }
@@ -85,12 +89,9 @@ export async function getInquiries(): Promise<Inquiry[]> {
           sorts: [{ timestamp: "created_time", direction: "descending" }],
         });
 
-        const inquiries = response.results.map((result) => {
-          if (!("properties" in result)) return null;
-
-          const page = result as PageObjectResponse;
-
-          return {
+        const inquiries: Inquiry[] = response.results
+          .filter((result): result is PageObjectResponse => "properties" in result)
+          .map((page) => ({
             id: page.id,
             title: getProp(page, "title") as string,
             name: getProp(page, "name") as string,
@@ -103,10 +104,14 @@ export async function getInquiries(): Promise<Inquiry[]> {
             reply: (getProp(page, "reply") as string) || null,
             replyDate: getProp(page, "replyDate") as string | null,
             createdTime: getProp(page, "createdTime") as string,
-          } satisfies Inquiry;
-        });
 
-        return inquiries.filter((inquiry): inquiry is Inquiry => inquiry !== null);
+            // 첨부파일 (선택 사항)
+            attachmentUrl: (getProp(page, "attachmentUrl") as string) || null,
+            attachmentName: (getProp(page, "attachmentName") as string) || null,
+            attachmentSize: (getProp(page, "attachmentSize") as number) || null,
+          }));
+
+        return inquiries;
       } catch (error) {
         console.error("[Inquiry] getInquiries 에러:", error);
         return [];
@@ -150,6 +155,11 @@ export async function getInquiryById(id: string): Promise<Inquiry | null> {
           reply: (getProp(page, "reply") as string) || null,
           replyDate: getProp(page, "replyDate") as string | null,
           createdTime: getProp(page, "createdTime") as string,
+
+          // 첨부파일 (선택 사항)
+          attachmentUrl: (getProp(page, "attachmentUrl") as string) || null,
+          attachmentName: (getProp(page, "attachmentName") as string) || null,
+          attachmentSize: (getProp(page, "attachmentSize") as number) || null,
         } satisfies Inquiry;
       } catch (error) {
         console.error(`[Inquiry] getInquiryById(${id}) 에러:`, error);

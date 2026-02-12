@@ -21,6 +21,9 @@ export async function POST(request: Request) {
       );
     }
 
+    // 선택 필드: 첨부파일
+    const { attachmentUrl, attachmentName, attachmentSize } = body;
+
     // 노션 DB에 문의 저장
     const inquiryId = await createInquiry({
       name,
@@ -29,6 +32,10 @@ export async function POST(request: Request) {
       category: category as InquiryCategory,
       title,
       message,
+      // 첨부파일 (있으면 추가)
+      ...(attachmentUrl && { attachmentUrl }),
+      ...(attachmentName && { attachmentName }),
+      ...(attachmentSize && { attachmentSize }),
     });
 
     if (!inquiryId) {

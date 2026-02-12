@@ -26,6 +26,11 @@ export interface Inquiry {
   reply: string | null;
   replyDate: string | null;
   createdTime: string;
+
+  // 첨부파일 (선택 사항)
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  attachmentSize?: number | null;
 }
 
 export interface InquiryFilters {

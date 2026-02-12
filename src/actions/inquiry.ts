@@ -66,6 +66,10 @@ export async function createInquiry(data: {
   phone: string;
   category: string;
   message: string;
+  // 첨부파일 (선택 사항)
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentSize?: number;
 }): Promise<string | null> {
   const client = getNotionClient();
   const dbId = process.env.NOTION_DB_INQUIRIES;
@@ -76,18 +80,33 @@ export async function createInquiry(data: {
   }
 
   try {
+    const properties: any = {
+      title: { title: [{ text: { content: data.title } }] },
+      name: { rich_text: [{ text: { content: data.name } }] },
+      email: { email: data.email },
+      phone: { phone_number: data.phone },
+      category: { select: { name: data.category } },
+      message: { rich_text: [{ text: { content: data.message } }] },
+      status: { select: { name: "접수" } },
+      priority: { select: { name: "보통" } },
+    };
+
+    // 첨부파일이 있으면 추가
+    if (data.attachmentUrl) {
+      properties.attachmentUrl = { url: data.attachmentUrl };
+    }
+    if (data.attachmentName) {
+      properties.attachmentName = {
+        rich_text: [{ text: { content: data.attachmentName } }],
+      };
+    }
+    if (data.attachmentSize) {
+      properties.attachmentSize = { number: data.attachmentSize };
+    }
+
     const response = await client.pages.create({
       parent: { database_id: dbId },
-      properties: {
-        title: { title: [{ text: { content: data.title } }] },
-        name: { rich_text: [{ text: { content: data.name } }] },
-        email: { email: data.email },
-        phone: { phone_number: data.phone },
-        category: { select: { name: data.category } },
-        message: { rich_text: [{ text: { content: data.message } }] },
-        status: { select: { name: "접수" } },
-        priority: { select: { name: "보통" } },
-      },
+      properties,
     });
 
     // ISR 캐시 재검증 (관리자 페이지)
