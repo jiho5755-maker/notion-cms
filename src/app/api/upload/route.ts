@@ -6,16 +6,34 @@ import { put } from "@vercel/blob";
 // ------------------------------------------------------------
 
 const ALLOWED_MIME_TYPES = [
+  // 이미지
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
+  // PDF
   "application/pdf",
+  // 비디오 (채널톡처럼)
+  "video/mp4",
+  "video/quicktime", // .mov
+  "video/x-msvideo", // .avi
+  "video/webm",
 ] as const;
 
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".pdf"];
+const ALLOWED_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".pdf",
+  ".mp4",
+  ".mov",
+  ".avi",
+  ".webm",
+];
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB (비디오 고려)
 
 // ------------------------------------------------------------
 // 공개 API: 파일 업로드
@@ -49,7 +67,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "허용되지 않는 파일 형식입니다. (jpg, png, gif, webp, pdf만 가능)",
+            "허용되지 않는 파일 형식입니다. (이미지, PDF, 비디오만 가능)",
         },
         { status: 400 }
       );

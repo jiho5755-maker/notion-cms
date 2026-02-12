@@ -11,7 +11,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Upload, X, FileIcon } from "lucide-react";
+import { Loader2, Upload, X, FileIcon, Video } from "lucide-react";
 import type { InquiryCategory } from "@/types/inquiry";
 import { SuccessMessage } from "./success-message";
 
@@ -55,6 +55,7 @@ export function ContactForm() {
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const {
     register,
@@ -73,16 +74,13 @@ export function ContactForm() {
     },
   });
 
-  // 파일 선택 핸들러
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // 파일 크기 제한 (5MB)
-    const maxSize = 5 * 1024 * 1024;
+  // 파일 검증 공통 함수
+  const validateFile = (file: File): boolean => {
+    // 파일 크기 제한 (50MB)
+    const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast.error("파일 크기는 5MB 이하여야 합니다.");
-      return;
+      toast.error("파일 크기는 50MB 이하여야 합니다.");
+      return false;
     }
 
     // 파일 타입 검증
@@ -92,13 +90,60 @@ export function ContactForm() {
       "image/gif",
       "image/webp",
       "application/pdf",
+      "video/mp4",
+      "video/quicktime",
+      "video/x-msvideo",
+      "video/webm",
     ];
     if (!allowedTypes.includes(file.type)) {
-      toast.error("이미지 파일(jpg, png, gif, webp) 또는 PDF만 업로드 가능합니다.");
-      return;
+      toast.error(
+        "이미지, PDF, 비디오 파일만 업로드 가능합니다. (jpg, png, gif, webp, pdf, mp4, mov, avi, webm)",
+      );
+      return false;
     }
 
-    setSelectedFile(file);
+    return true;
+  };
+
+  // 파일 선택 핸들러
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (validateFile(file)) {
+      setSelectedFile(file);
+    }
+  };
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    if (validateFile(file)) {
+      setSelectedFile(file);
+    }
   };
 
   // 파일 제거 핸들러
@@ -292,18 +337,30 @@ export function ContactForm() {
           파일 첨부 (선택)
         </label>
         <div className="space-y-2">
-          {/* 파일 선택 버튼 */}
+          {/* 드래그 앤 드롭 영역 */}
           {!selectedFile && (
             <label
               htmlFor="file"
-              className="flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-gray-400 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:bg-gray-700"
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              className={`flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed px-4 py-6 text-sm transition-all ${
+                isDragging
+                  ? "border-primary bg-primary/5 scale-[1.02]"
+                  : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500 dark:hover:bg-gray-700"
+              }`}
             >
-              <Upload className="h-5 w-5" />
-              <span>파일 선택 (이미지 또는 PDF, 최대 5MB)</span>
+              <Upload className={`h-5 w-5 ${isDragging ? "animate-bounce" : ""}`} />
+              <span className={isDragging ? "font-medium text-primary" : "text-gray-600 dark:text-gray-400"}>
+                {isDragging
+                  ? "여기에 파일을 놓으세요"
+                  : "파일을 드래그하거나 클릭하여 선택 (이미지, PDF, 비디오 / 최대 50MB)"}
+              </span>
               <input
                 id="file"
                 type="file"
-                accept="image/*,.pdf"
+                accept="image/*,.pdf,video/*"
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -313,13 +370,20 @@ export function ContactForm() {
           {/* 선택된 파일 미리보기 */}
           {selectedFile && (
             <div className="flex items-center gap-3 rounded-md border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-              <FileIcon className="h-8 w-8 flex-shrink-0 text-blue-500" />
+              {selectedFile.type.startsWith("video/") ? (
+                <Video className="h-8 w-8 flex-shrink-0 text-purple-500" />
+              ) : (
+                <FileIcon className="h-8 w-8 flex-shrink-0 text-blue-500" />
+              )}
               <div className="flex-1 overflow-hidden">
                 <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
                   {selectedFile.name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {(selectedFile.size / 1024).toFixed(1)} KB
+                  {selectedFile.size > 1024 * 1024
+                    ? `${(selectedFile.size / 1024 / 1024).toFixed(1)} MB`
+                    : `${(selectedFile.size / 1024).toFixed(1)} KB`}
+                  {selectedFile.type.startsWith("video/") && " • 비디오"}
                 </p>
               </div>
               <button
@@ -334,7 +398,7 @@ export function ContactForm() {
           )}
         </div>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          JPG, PNG, GIF, WebP, PDF 파일만 업로드 가능합니다.
+          이미지 (JPG, PNG, GIF, WebP), PDF, 비디오 (MP4, MOV, AVI, WebM) 파일을 업로드할 수 있습니다.
         </p>
       </div>
 
