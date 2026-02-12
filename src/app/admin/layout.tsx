@@ -5,7 +5,7 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LayoutDashboard, Users, Package, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Users, Package, MessageSquare, ClipboardCheck } from "lucide-react";
 import { AdminHeader } from "./_components/admin-header";
 
 export const metadata: Metadata = {
@@ -19,6 +19,7 @@ const navigation = [
   { name: "고객 관리", href: "/admin/customers", icon: Users },
   { name: "주문 관리", href: "/admin/orders", icon: Package },
   { name: "문의 관리", href: "/admin/inquiries", icon: MessageSquare },
+  { name: "업무 관리", href: "/work/tasks", icon: ClipboardCheck },
 ];
 
 export default function AdminLayout({

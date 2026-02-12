@@ -1,0 +1,11 @@
+API 엔드포인트 개발 명세서
+
+## 엔드포인트 목록
+- POST /api/users - 사용자 생성
+- GET /api/users/:id - 사용자 조회
+- PUT /api/users/:id - 사용자 수정
+- DELETE /api/users/:id - 사용자 삭제
+
+## 응답 형식
+- 성공: { success: true, data: ... }
+- 실패: { success: false, error: ... }

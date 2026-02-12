@@ -174,8 +174,8 @@ export interface MakeshopOrderItem {
  * 동적 라우트 페이지 props
  * Next.js 15+ 에서 params는 Promise로 감싸져 전달됨
  */
-export interface PageParams {
-  params: Promise<{ slug: string }>;
+export interface PageParams<T = { slug: string }> {
+  params: Promise<T>;
 }
 
 /**

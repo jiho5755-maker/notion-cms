@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { LayoutDashboard } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "업무 관리 | PRESSCO 21",
@@ -24,11 +25,14 @@ export default function WorkLayout({
               </h1>
               <p className="text-sm text-gray-600">3C 매트릭스 기반 우선순위 관리</p>
             </div>
-            <Link href="/">
-              <Button variant="outline" size="sm">
-                홈으로
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/admin/dashboard">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <LayoutDashboard className="h-4 w-4" />
+                  관리자 페이지
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>

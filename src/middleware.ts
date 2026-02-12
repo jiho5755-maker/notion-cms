@@ -10,8 +10,11 @@ import { verifyAuthToken } from "@/lib/auth";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // /admin 경로 보호 (로그인 페이지는 제외)
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+  // /admin 및 /work 경로 보호 (로그인 페이지는 제외)
+  const isAdminPath = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  const isWorkPath = pathname.startsWith("/work");
+
+  if (isAdminPath || isWorkPath) {
     const token = request.cookies.get("admin-auth")?.value;
 
     // 토큰이 없거나 유효하지 않으면 로그인 페이지로 리다이렉트
@@ -28,5 +31,6 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/admin/:path*",
+    "/work/:path*",
   ],
 };

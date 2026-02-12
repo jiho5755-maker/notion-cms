@@ -117,16 +117,6 @@ export default async function TaskDetailPage({
           attachments={task.attachments}
         />
       </div>
-
-      {/* 작업 정보 */}
-      {task.checklist && (
-        <div className="rounded-lg border bg-white p-6">
-          <h2 className="mb-3 text-xl font-semibold">체크리스트</h2>
-          <div className="whitespace-pre-wrap text-gray-700">
-            {task.checklist}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
